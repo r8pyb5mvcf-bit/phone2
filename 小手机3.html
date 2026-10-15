@@ -1,0 +1,3276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>小手机</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+/* ============================================================
+   0. 基础 & 变量
+   ============================================================ */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --c-bg:#f4f4f7;
+  --c-card:#ffffff;
+  --c-text:#141416;
+  --c-sub:#8b8b93;
+  --c-line:#e8e8ee;
+  --c-accent:#6b7cff;
+  --c-accent-soft:#eef0ff;
+  --r-s:10px; --r-m:16px; --r-l:24px; --r-xl:34px;
+  --sh-s:0 2px 8px rgba(20,20,30,.05);
+  --sh-m:0 6px 24px rgba(20,20,30,.08);
+  --sh-l:0 16px 44px rgba(20,20,30,.14);
+  --cell-h:72px; --cell-gap:14px;
+}
+html,body{margin:0;height:100%;overflow:hidden;background:#dcdce3;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+  color:var(--c-text);-webkit-font-smoothing:antialiased;}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit;padding:0}
+input,textarea,select{font-family:inherit;font-size:14px;color:var(--c-text);outline:none}
+::-webkit-scrollbar{width:0;height:0}
+
+/* ============================================================
+   1. 手机外壳
+   ============================================================ */
+#app{height:100%;display:flex;align-items:center;justify-content:center}
+.phone{
+  position:relative;
+  width:min(390px,100vw);height:min(844px,100dvh);
+  background:#f4f4f7;border-radius:44px;overflow:hidden;
+  box-shadow:0 24px 70px rgba(0,0,0,.30),0 0 0 9px #16161a,0 0 0 11px #2e2e36;
+  isolation:isolate;
+}
+@media (max-width:520px),(max-height:880px){
+  .phone{width:100vw;height:100dvh;border-radius:0;box-shadow:none}
+}
+.wallpaper{position:absolute;inset:0;background-size:cover;background-position:center;
+  background-color:#f4f4f7;transition:background-image .35s;z-index:0}
+.wallpaper::after{content:"";position:absolute;inset:0;
+  background-image:radial-gradient(rgba(0,0,0,.028) 1px,transparent 1px);
+  background-size:14px 14px;pointer-events:none}
+
+/* 状态栏 */
+.statusbar{position:absolute;top:0;left:0;right:0;height:46px;z-index:60;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 22px 0 26px;font-size:13px;font-weight:600;letter-spacing:.2px;
+  color:#1a1a1c;pointer-events:none;text-shadow:0 1px 2px rgba(255,255,255,.35)}
+.statusbar .sb-r{display:flex;align-items:center;gap:5px}
+.statusbar svg{display:block}
+.ic-sig{width:17px;height:11px}
+.ic-wifi{width:15px;height:11px}
+.ic-bat{width:25px;height:12px}
+.sb-enter-active,.sb-leave-active{transition:opacity .25s,transform .25s}
+.sb-enter-from,.sb-leave-to{opacity:0;transform:translateY(-100%)}
+
+.screen{position:absolute;inset:0;z-index:10;overflow:hidden}
+.appfade-enter-active,.appfade-leave-active{transition:opacity .22s ease,transform .22s ease}
+.appfade-enter-from{opacity:0;transform:scale(.965)}
+.appfade-leave-to{opacity:0;transform:scale(1.02)}
+
+/* ============================================================
+   2. 桌面
+   ============================================================ */
+.desktop{position:absolute;inset:0;display:flex;flex-direction:column;padding-top:52px}
+.desk-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 20px 8px;scrollbar-width:none}
+.desk-scroll::-webkit-scrollbar{display:none}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);
+  grid-auto-rows:var(--cell-h);gap:var(--cell-gap)}
+.cell-item{position:relative;display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-start;transition:transform .18s cubic-bezier(.3,1.4,.6,1)}
+.cell-item.tapped{transform:scale(.9)}
+.cell-item.dragging{opacity:.28}
+.cell-item.wobble .app-icon,.cell-item.wobble .app-label,
+.cell-item.wobble .widget-shell{animation:wob .34s infinite}
+@keyframes wob{0%{transform:rotate(-1.5deg)}50%{transform:rotate(1.5deg)}100%{transform:rotate(-1.5deg)}}
+.app-icon{width:54px;height:54px;border-radius:15px;display:grid;place-items:center;
+  color:#fff;box-shadow:0 4px 12px rgba(20,20,30,.13)}
+.app-label{font-size:10.5px;margin-top:5px;color:#2a2a30;letter-spacing:.1px;
+  max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 1px 3px rgba(255,255,255,.8);font-weight:500}
+.del-badge{position:absolute;top:-5px;left:calc(50% + 8px);width:19px;height:19px;border-radius:50%;
+  background:#ff453a;color:#fff;display:grid;place-items:center;font-size:13px;line-height:1;
+  border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.2);z-index:5}
+.del-badge::before{content:"−";font-weight:700;transform:translateY(-1px)}
+
+/* Dock */
+.dock{margin:6px 14px 18px;height:82px;border-radius:28px;
+  background:rgba(255,255,255,.55);backdrop-filter:blur(22px) saturate(1.4);
+  -webkit-backdrop-filter:blur(22px) saturate(1.4);
+  border:1px solid rgba(255,255,255,.75);box-shadow:0 8px 28px rgba(20,20,30,.09);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:9px 14px;
+  position:relative;transition:height .25s,background .25s}
+.dock.editing{background:rgba(255,255,255,.75)}
+.dock-item{display:flex;align-items:center;justify-content:center;position:relative;
+  transition:transform .18s cubic-bezier(.3,1.4,.6,1)}
+.dock-item.wobble{animation:wob .34s infinite}
+.dock-item .app-icon{width:50px;height:50px;border-radius:14px}
+.dock-item .del-badge{left:calc(50% + 6px);top:-2px}
+
+/* 明信片组件 */
+.postcard{width:100%;height:100%;border-radius:20px;overflow:hidden;position:relative;
+  background:var(--pc-base,#e9eaf2);box-shadow:var(--sh-m);cursor:pointer}
+.postcard .pc-img{position:absolute;left:0;right:0;top:0;height:66%;
+  background-size:cover;background-position:center;
+  -webkit-mask-image:linear-gradient(to bottom,#000 58%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000 58%,transparent 100%)}
+.postcard .pc-avatar{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);
+  width:64px;height:64px;border-radius:50%;background:#fff;
+  border:3.5px solid #fff;box-shadow:0 6px 18px rgba(20,20,30,.16);
+  background-size:cover;background-position:center;z-index:3}
+.postcard .pc-name{position:absolute;left:0;right:0;top:calc(44% + 38px);text-align:center;
+  font-size:14px;font-weight:650;color:#22222a;letter-spacing:.3px}
+.postcard .pc-sign{position:absolute;left:10px;right:10px;top:calc(44% + 58px);text-align:center;
+  font-size:11px;color:#71717c;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pc-edit{position:absolute;right:8px;top:8px;width:24px;height:24px;border-radius:50%;
+  background:rgba(255,255,255,.82);display:grid;place-items:center;z-index:6;
+  box-shadow:0 2px 6px rgba(0,0,0,.1);opacity:0;transition:opacity .2s}
+.postcard:hover .pc-edit{opacity:1}
+
+/* 拍立得 */
+.polaroid{width:100%;height:100%;position:relative;cursor:pointer}
+.polaroid .pl{position:absolute;background:#fff;border-radius:6px;
+  box-shadow:0 6px 16px rgba(20,20,30,.16);padding:5px 5px 16px;
+  transition:transform .3s cubic-bezier(.3,1.3,.6,1)}
+.polaroid .pl.a{left:6%;top:8%;width:74%;height:80%;transform:rotate(-9deg);z-index:1}
+.polaroid .pl.b{left:20%;top:4%;width:74%;height:80%;transform:rotate(5deg);z-index:2}
+.polaroid .pl img,.polaroid .pl .ph{width:100%;height:100%;object-fit:cover;border-radius:3px;background:#e6e6ee;display:block}
+.polaroid:active .pl.b{transform:rotate(2deg) scale(.97)}
+
+/* 音乐盒 */
+.musicbox{width:100%;height:100%;border-radius:20px;background:rgba(255,255,255,.86);
+  backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.9);
+  box-shadow:var(--sh-m);padding:12px;display:flex;flex-direction:column;justify-content:space-between}
+.musicbox .mb-top{display:flex;align-items:center;gap:8px}
+.musicbox .mb-disc{width:34px;height:34px;border-radius:50%;flex:none;
+  background:conic-gradient(from 0deg,#2c2c34,#5a5a66,#2c2c34,#5a5a66,#2c2c34);
+  display:grid;place-items:center;position:relative}
+.musicbox .mb-disc::after{content:"";width:9px;height:9px;border-radius:50%;background:#fff}
+.musicbox .mb-disc.spin{animation:spin 4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.musicbox .mb-title{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.musicbox .mb-bar{height:3px;border-radius:2px;background:#e4e4ec;overflow:hidden;position:relative}
+.musicbox .mb-fill{height:100%;background:var(--c-accent);border-radius:2px;transition:width .3s linear}
+.musicbox .mb-foot{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--c-sub)}
+.musicbox .mb-btn{width:28px;height:28px;border-radius:50%;background:var(--c-accent);color:#fff;
+  display:grid;place-items:center;box-shadow:0 3px 10px rgba(107,124,255,.35)}
+
+/* 小对话 */
+.minidialog{width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;
+  gap:7px;padding:2px}
+.minidialog .row{display:flex;align-items:flex-end;gap:5px}
+.minidialog .row.r{flex-direction:row-reverse}
+.minidialog .av{width:20px;height:20px;border-radius:50%;flex:none;background:#dcdce6;
+  background-size:cover;background-position:center;border:1.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.minidialog .bb{max-width:78%;padding:6px 10px;border-radius:13px;font-size:10.5px;line-height:1.35;
+  background:#fff;box-shadow:0 2px 8px rgba(20,20,30,.08);word-break:break-word}
+.minidialog .row.r .bb{background:var(--c-accent);color:#fff}
+
+/* ============================================================
+   3. 通用应用骨架
+   ============================================================ */
+.app{position:absolute;inset:0;display:flex;flex-direction:column;
+  background:var(--c-bg);overflow:hidden}
+.apphdr{flex:none;height:52px;margin-top:46px;display:flex;align-items:center;
+  padding:0 8px;gap:4px;position:relative;z-index:20}
+.apphdr .hb{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
+  color:#33333a;transition:background .18s}
+.apphdr .hb:active{background:rgba(0,0,0,.06)}
+.apphdr .ht{position:absolute;left:0;right:0;text-align:center;font-size:16px;
+  font-weight:650;letter-spacing:.2px;pointer-events:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 90px}
+.apphdr .hr{margin-left:auto;display:flex;gap:2px;align-items:center;z-index:2}
+.appbody{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 16px 24px;
+  -webkit-overflow-scrolling:touch}
+.appbody.flush{padding:0}
+
+.card{background:var(--c-card);border-radius:var(--r-m);box-shadow:var(--sh-s)}
+.sec-title{font-size:12px;color:var(--c-sub);font-weight:600;letter-spacing:.5px;
+  margin:18px 4px 8px;text-transform:uppercase}
+.row-item{display:flex;align-items:center;gap:12px;padding:14px 16px;
+  background:var(--c-card);cursor:pointer;transition:background .16s}
+.row-item:active{background:#f7f7fa}
+.row-item+.row-item{border-top:1px solid var(--c-line)}
+.row-item .ri-title{font-size:14.5px;font-weight:520;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-item .ri-sub{font-size:12px;color:var(--c-sub)}
+.row-item .ri-arrow{color:#c6c6ce;flex:none}
+.ri-stack{flex:1;min-width:0}
+.ri-stack .top{display:flex;align-items:center;gap:6px}
+.ri-stack .bot{font-size:12px;color:var(--c-sub);margin-top:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.btn{padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;
+  transition:transform .14s,opacity .14s}
+.btn:active{transform:scale(.97);opacity:.85}
+.btn-primary{background:var(--c-accent);color:#fff;box-shadow:0 6px 18px rgba(107,124,255,.28)}
+.btn-ghost{background:#efeff4;color:#3a3a42}
+.btn-danger{background:#ffeeee;color:#e5484d}
+.btn-block{display:block;width:100%}
+
+.inp{width:100%;padding:12px 14px;border-radius:12px;background:#f2f2f6;
+  border:1px solid transparent;transition:border .18s,background .18s;font-size:14px}
+.inp:focus{background:#fff;border-color:var(--c-accent)}
+textarea.inp{resize:vertical;line-height:1.5}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--c-sub);margin:0 0 6px 4px;font-weight:600}
+
+.empty{padding:70px 20px;text-align:center;color:#b0b0ba;font-size:13.5px;line-height:1.7}
+.empty svg{opacity:.4;margin-bottom:12px}
+
+.avatar{width:46px;height:46px;border-radius:50%;flex:none;background:#dcdce6 center/cover;
+  box-shadow:0 2px 8px rgba(20,20,30,.09)}
+
+/* 分段控件 */
+.seg{display:flex;background:#ececf1;border-radius:11px;padding:3px;gap:2px}
+.seg button{flex:1;padding:7px 10px;border-radius:9px;font-size:13px;font-weight:560;
+  color:#6d6d78;transition:.2s}
+.seg button.on{background:#fff;color:var(--c-text);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+
+/* 底部标签栏 */
+.tabbar{flex:none;height:62px;display:flex;background:rgba(255,255,255,.92);
+  backdrop-filter:blur(20px);border-top:1px solid var(--c-line);
+  padding-bottom:env(safe-area-inset-bottom)}
+.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;font-size:10px;color:#9a9aa4;transition:color .18s;font-weight:520}
+.tabbar button.on{color:var(--c-accent)}
+.tabbar .dot{position:absolute;top:8px;right:calc(50% - 16px);width:7px;height:7px;
+  border-radius:50%;background:#ff453a;border:1.5px solid #fff}
+
+/* 弹层 */
+.sheet-mask{position:absolute;inset:0;background:rgba(0,0,0,.28);z-index:200;
+  display:flex;align-items:flex-end;animation:fade .2s}
+@keyframes fade{from{opacity:0}}
+.sheet{width:100%;background:#fff;border-radius:24px 24px 0 0;padding:8px 0 18px;
+  animation:up .28s cubic-bezier(.25,1,.4,1);max-height:80%;overflow-y:auto}
+@keyframes up{from{transform:translateY(100%)}}
+.sheet-item{padding:15px 22px;font-size:15px;display:flex;align-items:center;gap:12px;
+  transition:background .15s}
+.sheet-item:active{background:#f5f5f8}
+.sheet-item.danger{color:#e5484d}
+.sheet-title{padding:14px 22px 6px;font-size:12px;color:var(--c-sub);font-weight:600}
+
+/* 输入 */
+.composer{flex:none;display:flex;align-items:flex-end;gap:8px;padding:8px 12px 16px;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(20px);border-top:1px solid var(--c-line)}
+.composer .cbtn{width:34px;height:34px;border-radius:50%;background:#f0f0f5;display:grid;
+  place-items:center;flex:none;color:#4a4a54;transition:.18s}
+.composer .cbtn:active{transform:scale(.92)}
+.composer .cbtn.primary{background:var(--c-accent);color:#fff}
+.composer textarea{flex:1;border:none;background:#f2f2f6;border-radius:18px;padding:9px 14px;
+  max-height:110px;min-height:36px;line-height:1.45;font-size:14.5px;resize:none;overflow-y:auto}
+
+/* 呼吸动画 */
+.pulse{animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
+
+/* 应用内二级页侧滑 */
+.slide-enter-active,.slide-leave-active{transition:transform .3s cubic-bezier(.3,1,.4,1),opacity .25s}
+.slide-enter-from{transform:translateX(100%);opacity:.4}
+.slide-leave-to{transform:translateX(100%);opacity:.4}
+
+/* ============================================================
+   4. 聊天应用
+   ============================================================ */
+.auth-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:0 26px;background:linear-gradient(160deg,#f7f7fb,#ececf4)}
+.auth-card{width:100%;background:#fff;border-radius:26px;padding:26px 22px 22px;
+  box-shadow:var(--sh-l);margin-top:-40px}
+.auth-logo{text-align:center;font-size:21px;font-weight:700;letter-spacing:2px;margin-bottom:5px}
+.auth-sub{text-align:center;font-size:11.5px;color:var(--c-sub);margin-bottom:20px;letter-spacing:1px}
+
+.chat-list .ri-avatar{position:relative}
+.chat-list .badge{position:absolute;top:-2px;right:-3px;min-width:17px;height:17px;padding:0 4px;
+  border-radius:9px;background:#ff453a;color:#fff;font-size:10px;display:grid;place-items:center;
+  border:1.5px solid #fff;font-weight:600}
+
+/* 聊天室 */
+.room{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--room-bg,#f4f4f7)}
+.room-hdr{flex:none;height:52px;margin-top:46px;display:flex;align-items:center;padding:0 6px;
+  background:rgba(255,255,255,.86);backdrop-filter:blur(18px);border-bottom:1px solid rgba(0,0,0,.045);z-index:20}
+.room-hdr .ht{font-size:15px;font-weight:640;position:absolute;left:0;right:0;text-align:center;
+  pointer-events:none;padding:0 100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.room-body{flex:1;overflow-y:auto;padding:14px 14px 8px;scroll-behavior:smooth}
+.msg-row{margin-bottom:12px;content-visibility:auto;contain-intrinsic-size:auto 58px}
+.msg-row.user{display:flex;flex-direction:column;align-items:flex-end}
+.msg-row.char{display:flex;flex-direction:column;align-items:flex-start}
+.msg-head{display:flex;align-items:center;gap:6px;margin-bottom:4px;padding:0 3px}
+.msg-row.user .msg-head{flex-direction:row-reverse}
+.msg-head .av{width:30px;height:30px;border-radius:50%;background:#d9d9e2 center/cover;flex:none;
+  box-shadow:0 2px 6px rgba(20,20,30,.1)}
+.msg-head .ts{font-size:10px;color:#a8a8b2}
+.bubble{max-width:76%;padding:9px 13px;border-radius:16px;font-size:14.2px;line-height:1.5;
+  word-break:break-word;box-shadow:0 1px 3px rgba(20,20,30,.05);position:relative;
+  transition:transform .14s;white-space:pre-wrap}
+.bubble:active{transform:scale(.985)}
+.msg-row.char .bubble{background:#fff;border-bottom-left-radius:6px}
+.msg-row.user .bubble{background:var(--c-accent);color:#fff;border-bottom-right-radius:6px}
+.bubble+.bubble{margin-top:5px}
+
+.narr{text-align:center;font-size:12px;color:#9b9ba6;font-style:italic;
+  margin:9px auto;max-width:86%;line-height:1.55;letter-spacing:.2px}
+.think-box{max-width:82%;margin:4px 0 6px;border-radius:12px;background:rgba(107,124,255,.06);
+  border:1px dashed rgba(107,124,255,.28);overflow:hidden}
+.think-head{display:flex;align-items:center;gap:5px;padding:7px 11px;font-size:11px;
+  color:#7a86c9;font-weight:600;cursor:pointer}
+.think-body{padding:0 11px 9px;font-size:12px;line-height:1.6;color:#7c7c88;white-space:pre-wrap}
+.tool-box{max-width:82%;margin:4px 0 6px;border-radius:12px;background:rgba(60,180,140,.07);
+  border:1px solid rgba(60,180,140,.22);overflow:hidden}
+.tool-head{display:flex;align-items:center;gap:6px;padding:7px 11px;font-size:11px;
+  color:#3fa583;font-weight:600;cursor:pointer}
+.tool-body{padding:0 11px 9px;font-size:11.5px;color:#5c6b64;line-height:1.6;white-space:pre-wrap;
+  max-height:180px;overflow-y:auto}
+
+.typing-dots{display:inline-flex;gap:3px;align-items:center;vertical-align:middle}
+.typing-dots i{width:4px;height:4px;border-radius:50%;background:#b0b0bc;animation:td 1.2s infinite}
+.typing-dots i:nth-child(2){animation-delay:.2s}
+.typing-dots i:nth-child(3){animation-delay:.4s}
+@keyframes td{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+.composer-drawer{flex:none;display:flex;gap:10px;padding:10px 14px 0;
+  background:rgba(255,255,255,.95);border-top:1px solid var(--c-line);
+  animation:up2 .22s ease}
+@keyframes up2{from{opacity:0;transform:translateY(8px)}}
+.dchip{display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:12px;
+  background:#f2f2f6;font-size:12.5px;font-weight:560;color:#4a4a54;transition:.18s}
+.dchip.on{background:var(--c-accent-soft);color:var(--c-accent)}
+.dchip:active{transform:scale(.95)}
+
+/* 朋友圈 */
+.moments{position:absolute;inset:0;background:#fff;z-index:120;display:flex;flex-direction:column;
+  animation:slidein .3s cubic-bezier(.3,1,.4,1)}
+@keyframes slidein{from{transform:translateX(100%)}}
+.mo-cover{height:230px;background:#c9c9d4 center/cover;position:relative;flex:none}
+.mo-cover::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,transparent 45%,rgba(0,0,0,.35))}
+.mo-user{position:absolute;right:16px;bottom:-24px;display:flex;align-items:flex-end;gap:10px;z-index:3}
+.mo-user .nm{color:#fff;font-size:14px;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.35);padding-bottom:28px}
+.mo-user .av{width:56px;height:56px;border-radius:12px;border:3px solid #fff;background:#ddd center/cover;
+  box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.mo-feed{flex:1;overflow-y:auto;padding:38px 16px 20px}
+.mo-card{display:flex;gap:10px;padding:14px 0;border-bottom:1px solid var(--c-line)}
+.mo-card .av{width:38px;height:38px;border-radius:8px;flex:none;background:#ddd center/cover}
+.mo-card .nm{font-size:13.5px;font-weight:620;color:#4a5b9e;margin-bottom:4px}
+.mo-card .tx{font-size:14px;line-height:1.55;margin-bottom:8px;white-space:pre-wrap}
+.mo-card .acts{display:flex;gap:16px;font-size:12px;color:#9a9aa4;margin-top:8px}
+
+/* ============================================================
+   5. 数据 & 设置
+   ============================================================ */
+.data-bar{display:flex;align-items:center;gap:10px;padding:12px 16px}
+.data-bar .bar{flex:1;height:6px;border-radius:3px;background:#ececf1;overflow:hidden}
+.data-bar .bar i{display:block;height:100%;border-radius:3px;background:var(--c-accent)}
+.tag{display:inline-block;padding:2px 8px;border-radius:7px;background:#f0f0f5;font-size:10.5px;
+  color:#6d6d78;font-weight:600;letter-spacing:.3px}
+.tag.g{background:#e8f6ef;color:#3fa583}
+.tag.b{background:var(--c-accent-soft);color:var(--c-accent)}
+.tag.o{background:#fff2e6;color:#e08a3c}
+
+/* 世界书 / 记忆条目 */
+.entry{background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:10px;
+  box-shadow:var(--sh-s);position:relative}
+.entry .et{font-size:14px;font-weight:600;margin-bottom:5px;padding-right:50px}
+.entry .ec{font-size:12.5px;color:#6d6d78;line-height:1.55;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.entry .eact{position:absolute;right:12px;top:12px}
+
+/* 开关 */
+.sw{width:46px;height:28px;border-radius:14px;background:#e0e0e6;position:relative;
+  transition:background .22s;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;
+  background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.16);transition:transform .22s}
+.sw.on{background:var(--c-accent)}
+.sw.on::after{transform:translateX(18px)}
+
+/* 图片选择器 */
+.imgpicker{width:74px;height:74px;border-radius:16px;background:#f2f2f6 center/cover;
+  display:grid;place-items:center;color:#b4b4be;border:1.5px dashed #d8d8e0;overflow:hidden;flex:none}
+
+/* 列表排序 */
+.order-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;
+  border-radius:12px;margin-bottom:8px;box-shadow:var(--sh-s)}
+.order-item .drag{color:#c8c8d0;cursor:grab}
+
+/* Toast */
+.toast{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);z-index:500;
+  background:rgba(28,28,34,.9);color:#fff;padding:9px 18px;border-radius:14px;font-size:13px;
+  backdrop-filter:blur(10px);animation:tst .3s;max-width:80%;text-align:center}
+@keyframes tst{from{opacity:0;transform:translate(-50%,10px)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="phone">
+    <div class="wallpaper" :style="wallpaperStyle"></div>
+    <div class="statusbar" v-if="store.settings.showStatusBar">
+      <span class="sb-l">{{ clock }}</span>
+      <span class="sb-r">
+        <svg class="ic-sig" viewBox="0 0 20 12"><path d="M1 11h2V8H1v3Zm4 0h2V6H5v5Zm4 0h2V4H9v7Zm4 0h2V2h-2v9Z" fill="currentColor"/></svg>
+        <svg class="ic-wifi" viewBox="0 0 16 12"><path d="M8 10.4 6.1 8.3a2.7 2.7 0 0 1 3.8 0L8 10.4Zm0-5.2a5.6 5.6 0 0 0-4 1.6L2.6 5.3a7.7 7.7 0 0 1 10.8 0L12 6.8a5.6 5.6 0 0 0-4-1.6Z" fill="currentColor"/></svg>
+        <svg class="ic-bat" viewBox="0 0 26 12"><rect x=".5" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".35"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23.2 4v4a2.2 2.2 0 0 0 0-4Z" fill="currentColor" opacity=".35"/></svg>
+      </span>
+    </div>
+    <div class="screen">
+      <transition name="appfade" mode="out-in">
+        <desktop-view v-if="!activeApp" key="desk" @open="openApp"></desktop-view>
+        <chat-app v-else-if="activeApp==='chat'" key="chat" @close="closeApp"></chat-app>
+        <worldbook-app v-else-if="activeApp==='worldbook'" key="wb" @close="closeApp"></worldbook-app>
+        <memory-app v-else-if="activeApp==='memory'" key="mem" @close="closeApp"></memory-app>
+        <archive-app v-else-if="activeApp==='archive'" key="arc" @close="closeApp"></archive-app>
+        <store-app v-else-if="activeApp==='store'" key="sto" @close="closeApp"></store-app>
+        <notice-app v-else-if="activeApp==='notice'" key="not" @close="closeApp"></notice-app>
+        <beauty-app v-else-if="activeApp==='beauty'" key="bea" @close="closeApp"></beauty-app>
+        <settings-app v-else-if="activeApp==='settings'" key="set" @close="closeApp"></settings-app>
+      </transition>
+      <transition name="appfade">
+        <div class="toast" v-if="toast">{{ toast }}</div>
+      </transition>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     模板：桌面
+     ============================================================ -->
+<script type="text/x-template" id="tpl-desktop">
+<div class="desktop" @pointerdown.self="onBgDown">
+  <div class="desk-scroll" ref="scroller">
+    <div class="grid" ref="grid">
+      <div v-for="it in items" :key="it.id"
+           class="cell-item"
+           :class="{wobble:edit, dragging:dragId===it.id, tapped:it._tap}"
+           :style="{gridColumn:(it.col+1)+' / span '+it.w, gridRow:(it.row+1)+' / span '+it.h}"
+           @pointerdown="onDown($event,it)"
+           @click="onClick($event,it)">
+        <div v-if="edit" class="del-badge" @pointerdown.stop @click.stop="remove(it)"></div>
+
+        <template v-if="it.type==='app'">
+          <div class="app-icon" :style="{background:appColor(it.appId)}">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff"
+                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" v-html="iconPath(it.appId)"></svg>
+          </div>
+          <div class="app-label">{{ appName(it.appId) }}</div>
+        </template>
+
+        <postcard-widget v-else-if="it.type==='postcard'" :item="it"></postcard-widget>
+        <polaroid-widget v-else-if="it.type==='polaroid'" :item="it"></polaroid-widget>
+        <music-widget v-else-if="it.type==='music'" :item="it"></music-widget>
+        <dialog-widget v-else-if="it.type==='dialog'" :item="it"></dialog-widget>
+      </div>
+    </div>
+  </div>
+
+  <div class="dock" :class="{editing:edit}" ref="dockEl">
+    <div v-for="(it,i) in dockItems" :key="it.id"
+         class="dock-item" :class="{wobble:edit}"
+         @pointerdown="onDown($event,it,true)"
+         @click="onClick($event,it)">
+      <div v-if="edit" class="del-badge" @pointerdown.stop @click.stop="remove(it,true)"></div>
+      <div class="app-icon" :style="{background:appColor(it.appId)}">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff"
+             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" v-html="iconPath(it.appId)"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+</script>
+
+<!-- ============================================================
+     模板：明信片 / 拍立得 / 音乐 / 小对话
+     ============================================================ -->
+<script type="text/x-template" id="tpl-postcard">
+<div class="postcard" :style="{'--pc-base': cfg.base || '#e9eaf2'}" @click="pickBase">
+  <div class="pc-img" :style="cfg.image?{backgroundImage:`url(${cfg.image})`}:{}"></div>
+  <div class="pc-avatar" :style="cfg.avatar?{backgroundImage:`url(${cfg.avatar})`}:{}" @click.stop="pickAvatar"></div>
+  <div class="pc-name" @click.stop="editText('name')">{{ cfg.name || '点击填写昵称' }}</div>
+  <div class="pc-sign" @click.stop="editText('sign')">{{ cfg.sign || '点击填写签名' }}</div>
+  <div class="pc-edit" @click.stop="pickBg">
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+  </div>
+</div>
+</script>
+
+<script type="text/x-template" id="tpl-polaroid">
+<div class="polaroid" @click="pick">
+  <div class="pl a"><div class="ph" :style="cfg.image?{backgroundImage:`url(${cfg.image})`,backgroundSize:'cover',backgroundPosition:'center'}:{}"></div></div>
+  <div class="pl b"><div class="ph" :style="cfg.image?{backgroundImage:`url(${cfg.image})`,backgroundSize:'cover',backgroundPosition:'center'}:{}"></div></div>
+</div>
+</script>
+
+<script type="text/x-template" id="tpl-music">
+<div class="musicbox">
+  <div class="mb-top">
+    <div class="mb-disc" :class="{spin:playing}"></div>
+    <div class="mb-title" @click.stop="rename">{{ cfg.title || '未命名歌曲' }}</div>
+  </div>
+  <div class="mb-bar"><div class="mb-fill" :style="{width:progress+'%'}"></div></div>
+  <div class="mb-foot">
+    <span>{{ fmt(cur) }}</span>
+    <button class="mb-btn" @click.stop="toggle">
+      <svg v-if="!playing" viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <svg v-else viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+    </button>
+    <span>{{ fmt(total) }}</span>
+  </div>
+</div>
+</script>
+
+<script type="text/x-template" id="tpl-dialog">
+<div class="minidialog">
+  <div class="row">
+    <div class="av" :style="cfg.av1?{backgroundImage:`url(${cfg.av1})`}:{}" @click.stop="pickAv(1)"></div>
+    <div class="bb" @click.stop="edit(1)">{{ cfg.t1 || '你好呀' }}</div>
+  </div>
+  <div class="row r">
+    <div class="av" :style="cfg.av2?{backgroundImage:`url(${cfg.av2})`}:{}" @click.stop="pickAv(2)"></div>
+    <div class="bb" @click.stop="edit(2)">{{ cfg.t2 || '在的~' }}</div>
+  </div>
+</div>
+</script>
+
+<!-- ============================================================
+     模板：聊天应用
+     ============================================================ -->
+<script type="text/x-template" id="tpl-chat">
+<div class="app chat-app">
+  <!-- ========== 未登录 ========== -->
+  <div v-if="!acc" class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">聊天</div>
+      <div class="auth-sub">TINY PHONE MESSENGER</div>
+      <div class="seg" style="margin-bottom:18px">
+        <button :class="{on:mode==='login'}" @click="mode='login'">登录</button>
+        <button :class="{on:mode==='reg'}" @click="mode='reg'">注册</button>
+      </div>
+
+      <template v-if="mode==='login'">
+        <div class="field"><input class="inp" v-model.trim="lf.uid" placeholder="账号"></div>
+        <div class="field"><input class="inp" type="password" v-model="lf.pwd" placeholder="密码"></div>
+        <button class="btn btn-primary btn-block" @click="doLogin">登录</button>
+        <div style="text-align:center;margin-top:14px">
+          <button class="hb" style="width:auto;padding:8px 14px;font-size:13px;color:#8b8b93" @click="backHome">返回桌面</button>
+        </div>
+      </template>
+
+      <template v-else>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px">
+          <div class="imgpicker" :style="rf.avatar?{backgroundImage:`url(${rf.avatar})`,border:'none'}:{}"
+               @click="pickAvatar"><span v-if="!rf.avatar">头像</span></div>
+          <div style="flex:1">
+            <div class="field" style="margin-bottom:8px"><input class="inp" v-model.trim="rf.uid" placeholder="账号"></div>
+            <div class="field" style="margin-bottom:0"><input class="inp" type="password" v-model="rf.pwd" placeholder="密码"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>性别</label>
+          <div class="seg">
+            <button :class="{on:rf.gender==='男'}" @click="rf.gender='男'">男</button>
+            <button :class="{on:rf.gender==='女'}" @click="rf.gender='女'">女</button>
+            <button :class="{on:rf.gender==='其他'}" @click="rf.gender='其他'">其他</button>
+          </div>
+        </div>
+        <div class="field"><label>人设</label><textarea class="inp" rows="3" v-model="rf.persona" placeholder="描述你自己"></textarea></div>
+        <div class="field"><label>荣格八维（可选）</label><input class="inp" v-model="rf.jung" placeholder="如 Ti-Ne-Si-Fe"></div>
+        <div class="field"><label>十六型人格（可选）</label><input class="inp" v-model="rf.mbti" placeholder="如 INTP"></div>
+        <div class="field"><label>角色背景（可选）</label><textarea class="inp" rows="2" v-model="rf.bg"></textarea></div>
+        <button class="btn btn-primary btn-block" @click="doRegister">注册并进入</button>
+        <div style="text-align:center;margin-top:14px">
+          <button style="padding:8px 14px;font-size:13px;color:#8b8b93" @click="backHome">返回桌面</button>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ========== 已登录主界面 ========== -->
+  <template v-else>
+    <!-- 主框架 -->
+    <template v-if="page==='home'">
+      <div class="apphdr">
+        <button class="hb" @click="close">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="ht">{{ tabTitle }}</div>
+        <div class="hr">
+          <button class="hb" v-if="tab==='msg'||tab==='contacts'" @click="page='add'">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="appbody flush" style="padding:0 12px 12px">
+        <!-- 消息列表 -->
+        <template v-if="tab==='msg'">
+          <div v-if="!friends.length" class="empty">
+            <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 4 11.5a8.4 8.4 0 0 1 8.5-8.4A8.4 8.4 0 0 1 21 11.5Z"/></svg>
+            <div>还没有好友<br>点击右上角 + 添加吧</div>
+          </div>
+          <div v-else class="chat-list">
+            <div v-for="f in friends" :key="f.id" class="row-item" style="border-radius:14px;margin-bottom:8px" @click="openRoom(f)">
+              <div class="avatar" :style="f.avatar?{backgroundImage:`url(${f.avatar})`}:{}"></div>
+              <div class="ri-stack">
+                <div class="top"><span class="ri-title">{{ f.remark || f.name }}</span></div>
+                <div class="bot">{{ lastMsg(f.id) }}</div>
+              </div>
+              <div class="ri-arrow">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 通讯录 -->
+        <template v-else-if="tab==='contacts'">
+          <div v-if="!friends.length" class="empty">通讯录空空如也</div>
+          <div v-else class="card" style="overflow:hidden">
+            <div v-for="f in friends" :key="f.id" class="row-item" @click="openRoom(f)">
+              <div class="avatar" style="width:38px;height:38px" :style="f.avatar?{backgroundImage:`url(${f.avatar})`}:{}"></div>
+              <div class="ri-stack"><div class="ri-title">{{ f.remark || f.name }}</div>
+                <div class="bot">通讯号 {{ f.code }}</div></div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 发现 -->
+        <template v-else-if="tab==='find'">
+          <div class="card" style="overflow:hidden;margin-top:8px">
+            <div class="row-item" @click="moments=true">
+              <div class="app-icon" style="width:34px;height:34px;border-radius:10px;background:#8fa4d4">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+              </div>
+              <div class="ri-title">朋友圈</div>
+              <div class="ri-arrow"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 我的 -->
+        <template v-else>
+          <div class="card" style="padding:20px;display:flex;gap:14px;align-items:center;margin-top:8px">
+            <div class="avatar" style="width:58px;height:58px" :style="acc.avatar?{backgroundImage:`url(${acc.avatar})`}:{}"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:17px;font-weight:650">{{ acc.uid }}</div>
+              <div style="font-size:12px;color:var(--c-sub);margin-top:4px">{{ acc.gender || '未设置' }} · {{ acc.mbti || '未设置 MBTI' }}</div>
+            </div>
+          </div>
+          <div class="sec-title">我的资料</div>
+          <div class="card" style="overflow:hidden">
+            <div class="row-item" @click="editProfile">
+              <div class="ri-title">编辑资料</div>
+              <div class="ri-arrow"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></div>
+            </div>
+            <div class="row-item" @click="logout">
+              <div class="ri-title" style="color:#e5484d">退出登录</div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="tabbar">
+        <button :class="{on:tab==='msg'}" @click="tab='msg'">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 4 11.5a8.4 8.4 0 0 1 8.5-8.4A8.4 8.4 0 0 1 21 11.5Z"/></svg>
+          <span>消息</span>
+        </button>
+        <button :class="{on:tab==='contacts'}" @click="tab='contacts'">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <span>通讯录</span>
+        </button>
+        <button :class="{on:tab==='find'}" @click="tab='find'">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>
+          <span>发现</span>
+        </button>
+        <button :class="{on:tab==='me'}" @click="tab='me'">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <span>我的</span>
+        </button>
+      </div>
+    </template>
+
+    <!-- ========== 添加好友 ========== -->
+    <template v-else-if="page==='add'">
+      <div class="apphdr">
+        <button class="hb" @click="page='home'">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="ht">添加好友</div>
+      </div>
+      <div class="appbody">
+        <div style="display:flex;gap:8px;margin:8px 0 16px">
+          <input class="inp" v-model.trim="searchCode" placeholder="输入通讯号，如 12345678">
+          <button class="btn btn-primary" @click="doSearch" style="flex:none;padding:11px 16px">搜索</button>
+        </div>
+        <div v-if="searchResult" class="card" style="padding:16px;display:flex;gap:12px;align-items:center">
+          <div class="avatar" :style="searchResult.avatar?{backgroundImage:`url(${searchResult.avatar})`}:{}"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:620">{{ searchResult.name }}</div>
+            <div style="font-size:12px;color:var(--c-sub);margin-top:3px">{{ searchResult.gender }} · {{ searchResult.code }}</div>
+          </div>
+          <button class="btn btn-primary" style="padding:9px 16px;font-size:13px"
+                  :disabled="isFriend(searchResult.id)" @click="addFriend(searchResult)">
+            {{ isFriend(searchResult.id) ? '已添加' : '添加' }}
+          </button>
+        </div>
+        <div v-else-if="searched" class="empty">没有找到该通讯号对应的角色</div>
+
+        <div class="sec-title">提示</div>
+        <div class="card" style="padding:14px 16px;font-size:12.5px;color:var(--c-sub);line-height:1.7">
+          角色需要在「档案」应用中创建，创建后会自动生成专属通讯号。
+        </div>
+      </div>
+    </template>
+
+    <!-- ========== 聊天室 ========== -->
+    <template v-else-if="page==='room'">
+      <div class="room" :class="'room-'+curFriend.id" :style="roomStyle">
+        <div class="room-hdr">
+          <button class="hb" @click="leaveRoom">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <div class="ht" :class="{pulse:typing}">{{ typing ? '对方正在输入...' : (curFriend.remark||curFriend.name) }}</div>
+          <div class="hr">
+            <button class="hb" @click="page='friendset'">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="room-body" ref="roomBody" @scroll="onRoomScroll">
+          <div v-for="m in msgs" :key="m.id" class="msg-row" :class="m.role">
+            <div class="msg-head">
+              <div class="av" :style="avatarFor(m.role)"></div>
+              <span class="ts">{{ fmtTime(m.ts) }}</span>
+            </div>
+            <template v-for="(b,bi) in m.blocks" :key="bi">
+              <div v-if="b.type==='bubble'" class="bubble"
+                   @pointerdown="startPress($event,m,b)" @pointerup="cancelPress" @pointerleave="cancelPress">{{ b.text }}</div>
+              <div v-else-if="b.type==='narr'" class="narr">{{ b.text }}</div>
+              <div v-else-if="b.type==='think'" class="think-box" v-show="!settings.hideThink">
+                <div class="think-head" @click="b._open=!b._open">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="4"/></svg>
+                  思维链
+                  <svg style="margin-left:auto;transition:transform .2s" :style="{transform:b._open?'rotate(90deg)':''}" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
+                <div class="think-body" v-show="b._open">{{ b.text }}</div>
+              </div>
+              <div v-else-if="b.type==='tool'" class="tool-box">
+                <div class="tool-head" @click="b._open=!b._open">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-2.4 2.4-1.4-1.4 2.4-2.4Z"/></svg>
+                  调用工具：{{ b.name || '检索' }}
+                  <svg style="margin-left:auto;transition:transform .2s" :style="{transform:b._open?'rotate(90deg)':''}" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+                </div>
+                <div class="tool-body" v-show="b._open">{{ b.text }}</div>
+              </div>
+            </template>
+          </div>
+
+          <div v-if="typing" class="msg-row char">
+            <div class="msg-head">
+              <div class="av" :style="avatarFor('char')"></div>
+            </div>
+            <div class="bubble"><span class="typing-dots"><i></i><i></i><i></i></span></div>
+          </div>
+        </div>
+
+        <div v-if="drawer" class="composer-drawer">
+          <button class="dchip" @click="insertNarr">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h13"/></svg>
+            旁白输入
+          </button>
+          <button class="dchip" :class="{on:timeAware}" @click="timeAware=!timeAware">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            时间感知
+          </button>
+        </div>
+
+        <div class="composer">
+          <button class="cbtn" @click="drawer=!drawer">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <textarea ref="ta" v-model="draft" rows="1" placeholder="说点什么..."
+                    @input="autoGrow" @keydown.enter.exact.prevent="send"></textarea>
+          <button class="cbtn primary" @click="send">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ========== 好友设置 ========== -->
+    <template v-else-if="page==='friendset'">
+      <div class="apphdr">
+        <button class="hb" @click="page='room'">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="ht">聊天设置</div>
+      </div>
+      <div class="appbody">
+        <div class="card" style="overflow:hidden;margin-top:8px">
+          <div class="row-item">
+            <div class="ri-title">好友备注</div>
+            <input class="inp" style="width:130px;padding:7px 10px;text-align:right" v-model="remarkDraft"
+                   @change="saveRemark" placeholder="未设置">
+          </div>
+          <div class="row-item" @click="detail='beautify'">
+            <div class="ri-title">聊天页美化</div>
+            <div class="ri-sub">{{ (curFriend.cssChat||curFriend.cssBubble||curFriend.roomBg) ? '已自定义' : '未设置' }}</div>
+            <div class="ri-arrow"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></div>
+          </div>
+        </div>
+
+        <template v-if="detail==='beautify'">
+          <div class="sec-title">聊天室背景</div>
+          <div class="card" style="padding:16px">
+            <div style="display:flex;gap:12px;align-items:center">
+              <div class="imgpicker" :style="curFriend.roomBg?{backgroundImage:`url(${curFriend.roomBg})`,border:'none'}:{}" @click="pickRoomBg"><span v-if="!curFriend.roomBg">上传</span></div>
+              <div style="font-size:12px;color:var(--c-sub);line-height:1.6">
+                上传图片作为该好友聊天室背景<br>
+                <button v-if="curFriend.roomBg" style="color:#e5484d;font-size:12px;margin-top:6px" @click="clearRoomBg">清除背景</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec-title">自定义聊天室 CSS</div>
+          <div class="card" style="padding:12px">
+            <textarea class="inp" rows="4" v-model="cssChatDraft" style="font-family:ui-monospace,monospace;font-size:12px"
+                      placeholder="作用于整个聊天室，例如：&#10;.bubble{ letter-spacing:.5px; }"></textarea>
+          </div>
+
+          <div class="sec-title">自定义气泡 CSS（层级更高）</div>
+          <div class="card" style="padding:12px">
+            <textarea class="inp" rows="4" v-model="cssBubbleDraft" style="font-family:ui-monospace,monospace;font-size:12px"
+                      placeholder="仅作用于气泡，会覆盖聊天室 CSS&#10;支持 background-image:url(...) 与透明底"></textarea>
+          </div>
+
+          <button class="btn btn-primary btn-block" style="margin-top:16px" @click="saveBeautify">保存并应用</button>
+        </template>
+      </div>
+    </template>
+  </template>
+
+  <!-- 朋友圈浮窗 -->
+  <div v-if="moments" class="moments">
+    <div class="mo-cover" :style="momentsCfg.cover?{backgroundImage:`url(${momentsCfg.cover})`}:{}"
+         @click="pickMomentsCover">
+      <div class="mo-user">
+        <div class="nm">{{ acc.uid }}</div>
+        <div class="av" :style="acc.avatar?{backgroundImage:`url(${acc.avatar})`}:{}"></div>
+      </div>
+    </div>
+    <div style="position:absolute;top:52px;left:14px;z-index:5">
+      <button class="hb" style="background:rgba(255,255,255,.85);backdrop-filter:blur(10px)" @click="moments=false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+    </div>
+    <div class="mo-feed">
+      <div v-if="!momentsCfg.posts.length" class="empty">还没有动态</div>
+      <div v-for="p in momentsCfg.posts" :key="p.id" class="mo-card">
+        <div class="av" :style="acc.avatar?{backgroundImage:`url(${acc.avatar})`}:{}"></div>
+        <div style="flex:1;min-width:0">
+          <div class="nm">{{ acc.uid }}</div>
+          <div class="tx">{{ p.text }}</div>
+          <div style="font-size:11px;color:#b0b0ba">{{ fmtTime(p.ts) }}</div>
+          <div class="acts">
+            <span>♡ {{ p.likes||0 }}</span>
+            <span>评论 {{ (p.comments||[]).length }}</span>
+            <span>转发</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 长按菜单 -->
+  <div v-if="pressMenu" class="sheet-mask" @click="pressMenu=null">
+    <div class="sheet" @click.stop>
+      <div class="sheet-title">消息操作</div>
+      <div class="sheet-item" @click="menuEdit">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>编辑
+      </div>
+      <div class="sheet-item danger" @click="menuDelete">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>删除
+      </div>
+      <div class="sheet-item" v-if="pressMenu.msg.role==='char'" @click="menuReroll">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>重说
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑弹层 -->
+  <div v-if="editSheet" class="sheet-mask" @click="editSheet=null">
+    <div class="sheet" @click.stop style="padding:18px 20px 22px">
+      <div class="sheet-title" style="padding-left:0">编辑内容</div>
+      <textarea class="inp" rows="6" v-model="editText" style="font-size:13.5px"></textarea>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn btn-ghost" style="flex:1" @click="editSheet=null">取消</button>
+        <button class="btn btn-primary" style="flex:1" @click="saveEdit">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 资料编辑 -->
+  <div v-if="profileSheet" class="sheet-mask" @click="profileSheet=false">
+    <div class="sheet" @click.stop style="padding:18px 20px 22px">
+      <div class="sheet-title" style="padding-left:0">编辑我的资料</div>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <div class="imgpicker" :style="acc.avatar?{backgroundImage:`url(${acc.avatar})`,border:'none'}:{}" @click="pickAccAvatar"><span v-if="!acc.avatar">头像</span></div>
+        <input class="inp" v-model="acc.uid" placeholder="昵称">
+      </div>
+      <div class="field"><label>人设</label><textarea class="inp" rows="4" v-model="acc.persona"></textarea></div>
+      <div class="field"><label>MBTI</label><input class="inp" v-model="acc.mbti"></div>
+      <button class="btn btn-primary btn-block" @click="saveProfile">保存</button>
+    </div>
+  </div>
+</div>
+</script>
+
+<!-- ============================================================
+     模板：世界书
+     ============================================================ -->
+<script type="text/x-template" id="tpl-worldbook">
+<div class="app">
+  <div class="apphdr">
+    <button class="hb" @click="detail?detail=null:$emit('close')">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="ht">{{ detail ? detail.name : '世界书' }}</div>
+    <div class="hr">
+      <button class="hb" v-if="!detail" @click="createBook">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="hb" v-else @click="createEntry">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="appbody">
+    <template v-if="!detail">
+      <div v-if="!books.length" class="empty">
+        <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v16H6.5A2.5 2.5 0 0 0 4 20.5Z"/><path d="M4 4.5v16"/></svg>
+        <div>还没有世界书<br>点击右上角 + 新建一本</div>
+      </div>
+      <div v-else>
+        <div v-for="b in books" :key="b.id" class="row-item card" style="margin-bottom:10px;border-radius:14px" @click="openBook(b)">
+          <div class="app-icon" style="width:40px;height:40px;border-radius:12px;background:#a5b4d4">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v16H6.5A2.5 2.5 0 0 0 4 20.5Z"/></svg>
+          </div>
+          <div class="ri-stack">
+            <div class="ri-title">{{ b.name }}</div>
+            <div class="bot">{{ b.entries.length }} 个条目 · {{ b.pos==='pre'?'前置':b.pos==='mid'?'中置':'后置' }}</div>
+          </div>
+          <button class="hb" @click.stop="delBook(b)">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#c2c2cc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <template v-else>
+      <div class="seg" style="margin:8px 0 16px">
+        <button :class="{on:detail.pos==='pre'}" @click="setPos('pre')">前置</button>
+        <button :class="{on:detail.pos==='mid'}" @click="setPos('mid')">中置</button>
+        <button :class="{on:detail.pos==='post'}" @click="setPos('post')">后置</button>
+      </div>
+      <div v-if="!detail.entries.length" class="empty">暂无条目</div>
+      <div v-for="e in detail.entries" :key="e.id" class="entry">
+        <div class="et">{{ e.title || '未命名条目' }}</div>
+        <div class="ec">{{ e.type==='regex' ? '[正则] '+e.pattern : e.content }}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
+          <span class="tag" :class="{g:e.inject}">{{ e.inject?'注入中':'已关闭' }}</span>
+          <span class="tag b">{{ e.mode==='always'?'始终注入':e.mode==='keyword'?'关键词':'概率' }}</span>
+          <span class="tag o" v-if="e.mode==='keyword'">{{ e.keys }}</span>
+          <span class="tag o" v-if="e.mode==='prob'">{{ e.prob }}%</span>
+        </div>
+        <div class="eact">
+          <button class="hb" @click="editEntry(e)">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#c2c2cc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- 条目编辑 -->
+  <div v-if="editing" class="sheet-mask" @click="editing=null">
+    <div class="sheet" @click.stop style="padding:18px 20px 22px">
+      <div class="sheet-title" style="padding-left:0">条目编辑</div>
+      <div class="field"><label>标题</label><input class="inp" v-model="editing.title"></div>
+      <div class="field">
+        <label>类型</label>
+        <div class="seg">
+          <button :class="{on:editing.type==='text'}" @click="editing.type='text'">文本</button>
+          <button :class="{on:editing.type==='regex'}" @click="editing.type='regex'">正则</button>
+        </div>
+      </div>
+      <div class="field" v-if="editing.type==='regex'"><label>正则表达式</label><input class="inp" v-model="editing.pattern"></div>
+      <div class="field"><label>内容</label><textarea class="inp" rows="4" v-model="editing.content"></textarea></div>
+      <div class="field">
+        <label>注入方式</label>
+        <div class="seg">
+          <button :class="{on:editing.mode==='always'}" @click="editing.mode='always'">始终</button>
+          <button :class="{on:editing.mode==='keyword'}" @click="editing.mode='keyword'">关键词</button>
+          <button :class="{on:editing.mode==='prob'}" @click="editing.mode='prob'">概率</button>
+        </div>
+      </div>
+      <div class="field" v-if="editing.mode==='keyword'"><label>关键词（逗号分隔）</label><input class="inp" v-model="editing.keys"></div>
+      <div class="field" v-if="editing.mode==='prob'"><label>概率 %</label><input class="inp" type="number" v-model.number="editing.prob"></div>
+      <div class="row-item" style="padding:12px 0;background:none">
+        <div class="ri-title">独立注入开关</div>
+        <div class="sw" :class="{on:editing.inject}" @click="editing.inject=!editing.inject"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn btn-ghost" style="flex:1" @click="editing=null">取消</button>
+        <button class="btn btn-danger" @click="delEntry(editing)">删除</button>
+        <button class="btn btn-primary" style="flex:1" @click="saveEntry">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+</script>
+
+<!-- ============================================================
+     模板：记忆
+     ============================================================ -->
+<script type="text/x-template" id="tpl-memory">
+<div class="app">
+  <div class="apphdr">
+    <button class="hb" @click="$emit('close')">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="ht">记忆</div>
+    <div class="hr">
+      <button class="hb" @click="summarizeAll">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="3.2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="appbody">
+    <div class="seg" style="margin:8px 0 16px">
+      <button :class="{on:tab==='short'}" @click="tab='short'">短时记忆</button>
+      <button :class="{on:tab==='index'}" @click="tab='index'">索引记忆</button>
+      <button :class="{on:tab==='perm'}" @click="tab='perm'">永久记忆</button>
+    </div>
+
+    <div class="card" style="padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:12.5px;color:var(--c-sub)">总结阈值</span>
+      <input class="inp" type="number" v-model.number="store.settings.memoryThreshold"
+             style="width:80px;padding:7px 10px;text-align:center" @change="saveSettings">
+      <span style="font-size:12.5px;color:var(--c-sub)">条消息</span>
+      <button class="btn btn-ghost" style="margin-left:auto;padding:8px 14px;font-size:12.5px" @click="summarizeAll">一键总结</button>
+    </div>
+
+    <div class="card" style="padding:12px 16px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--c-sub);margin-bottom:8px;font-weight:600">总结使用 API</div>
+      <select class="inp" v-model="store.settings.memoryApiId" @change="saveSettings">
+        <option :value="null">跟随全局默认</option>
+        <option v-for="a in store.settings.apiConfigs" :key="a.id" :value="a.id">{{ a.name }}</option>
+      </select>
+    </div>
+
+    <div v-if="!filtered.length" class="empty">暂无{{ tabName }}记录</div>
+    <div v-for="m in filtered" :key="m.id" class="entry">
+      <div class="et">{{ m.title }}</div>
+      <div class="ec">{{ m.content }}</div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <span class="tag b" v-if="m.charId">{{ charName(m.charId) }}</span>
+        <span class="tag" v-if="m.source">{{ m.source }}</span>
+        <span class="tag o" v-if="m.links && m.links.length">关联 {{ m.links.length }} 条原始记录</span>
+      </div>
+      <div v-if="tab==='index'" style="margin-top:10px">
+        <button class="btn btn-ghost" style="padding:7px 13px;font-size:12px" @click="m._open=!m._open">
+          {{ m._open ? '收起原始记录' : '下钻原始记忆' }}
+        </button>
+        <div v-show="m._open" style="margin-top:10px;padding:10px;border-radius:10px;background:#f7f7fa;
+             font-size:12px;line-height:1.65;color:#6d6d78;max-height:200px;overflow-y:auto;white-space:pre-wrap">
+          {{ m.raw || '暂无绑定的原始聊天记录' }}
+        </div>
+      </div>
+      <div class="eact">
+        <button class="hb" @click="del(m)">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#c2c2cc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+</script>
+
+<!-- ============================================================
+     模板：档案
+     ============================================================ -->
+<script type="text/x-template" id="tpl-archive">
+<div class="app">
+  <div class="apphdr">
+    <button class="hb" @click="$emit('close')">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="ht">档案</div>
+    <div class="hr">
+      <button class="hb" @click="newChar">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="appbody">
+    <div v-if="!chars.length" class="empty">
+      <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+      <div>还没有角色<br>点击右上角 + 创建</div>
+    </div>
+    <div v-for="c in chars" :key="c.id" class="row-item card" style="border-radius:14px;margin-bottom:10px" @click="edit(c)">
+      <div class="avatar" :style="c.avatar?{backgroundImage:`url(${c.avatar})`}:{}"></div>
+      <div class="ri-stack">
+        <div class="ri-title">{{ c.name }}</div>
+        <div class="bot">{{ c.gender }} · 通讯号 {{ c.code }}</div>
+      </div>
+      <button class="hb" @click.stop="del(c)">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#c2c2cc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div v-if="editing" class="sheet-mask" @click="editing=null">
+    <div class="sheet" @click.stop style="padding:18px 20px 22px;max-height:88%">
+      <div class="sheet-title" style="padding-left:0">{{ editing.id ? '编辑角色' : '创建角色' }}</div>
+      <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
+        <div class="imgpicker" style="width:66px;height:66px" :style="editing.avatar?{backgroundImage:`url(${editing.avatar})`,border:'none'}:{}" @click="pickCharAvatar"><span v-if="!editing.avatar">头像*</span></div>
+        <div style="flex:1">
+          <div class="field" style="margin-bottom:8px"><input class="inp" v-model.trim="editing.name" placeholder="角色姓名 *"></div>
+          <div class="seg">
+            <button :class="{on:editing.gender==='男'}" @click="editing.gender='男'">男</button>
+            <button :class="{on:editing.gender==='女'}" @click="editing.gender='女'">女</button>
+            <button :class="{on:editing.gender==='其他'}" @click="editing.gender='其他'">其他</button>
+          </div>
+        </div>
+      </div>
+      <div class="field"><label>人设 *（无字数上限）</label><textarea class="inp" rows="5" v-model="editing.persona"></textarea></div>
+      <div class="field"><label>荣格八维（可选）</label><input class="inp" v-model="editing.jung"></div>
+      <div class="field"><label>十六型人格（可选）</label><input class="inp" v-model="editing.mbti"></div>
+      <div class="field"><label>角色背景（可选）</label><textarea class="inp" rows="2" v-model="editing.bg"></textarea></div>
+      <div class="field"><label>角色扮演禁忌（可选）</label><textarea class="inp" rows="2" v-model="editing.taboo"></textarea></div>
+      <div class="field"><label>参考对话（可选）</label><textarea class="inp" rows="2" v-model="editing.refDialog"></textarea></div>
+      <div class="field"><label>开场白（可选）</label><textarea class="inp" rows="2" v-model="editing.opening"></textarea></div>
+      <div class="field">
+        <label>绑定世界书</label>
+        <select class="inp" v-model="editing.worldbookId">
+          <option :value="null">不绑定</option>
+          <option v-for="b in store.worldbooks" :key="b.id" :value="b.id">{{ b.name }}</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>专用 API 配置</label>
+        <select class="inp" v-model="editing.apiId">
+          <option :value="null">跟随全局默认</option>
+          <option v-for="a in store.settings.apiConfigs" :key="a.id" :value="a.id">{{ a.name }}</option>
+        </select>
+      </div>
+      <div v-if="editing.code" style="font-size:12px;color:var(--c-sub);margin-bottom:10px">
+        通讯号：<b style="color:var(--c-text)">{{ editing.code }}</b>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button class="btn btn-ghost" style="flex:1" @click="editing=null">取消</button>
+        <button class="btn btn-primary" style="flex:1" @click="save">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+</script>
+
+<!-- ============================================================
+     模板：商店 / 通知 / 美化
+     ============================================================ -->
+<script type="text/x-template" id="tpl-store">
+<div class="app">
+  <div class="apphdr">
+    <button class="hb" @click="$emit('close')">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="ht">商店</div>
+  </div>
+  <div class="appbody">
+    <div class="sec-title">应用</div>
+    <div class="card" style="overflow:hidden">
+      <div v-for="a in allApps" :key="a.id" class="row-item">
+        <div class="app-icon" style="width:38px;height:38px;border-radius:11px" :style="{background:a.color}">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" v-html="a.icon"></svg>
+        </div>
+        <div class="ri-title">{{ a.name }}</div>
+        <button class="btn" :class="hasApp(a.id)?'btn-ghost':'btn-primary'"
+                style="padding:7px 14px;font-size:12.5px" @click="toggleApp(a.id)">
+          {{ hasApp(a.id) ? '已安装' : '安装' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="sec-title">桌面组件</div>
+    <div class="card" style="overflow:hidden">
+      <div v-for="w in widgets" :key="w.type" class="row-item">
+        <div class="app-icon" style="width:38px;height:38px;border-radius:11px;background:#b9bccb">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
+        </div>
+        <div class="ri-title">{{ w.name }}</div>
+        <button class="btn btn-primary" style="padding:7px 14px;font-size:12.5px" @click="addWidget(w.type)">添加</button>
+      </div>
+    </div>
+  </div>
+</div>
+</script>
+
+<script type="text/x-template" id="tpl-notice">
+<div class="app">
+  <div class="apphdr">
+    <button class="hb" @click="$emit('close')">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="ht">通知</div>
+  </div>
+  <div class="appbody">
+    <div class="entry" v-for="n in notices" :key="n.id">
+      <div class="et">{{ n.title }}</div>
+      <div class="ec" style="-webkit-line-clamp:99;display:block;white-space:pre-wrap">{{ n.body }}</div>
+      <div style="font-size:11px;color:#b0b0ba;margin-top:8px">{{ n.date }}</div>
+    </div>
+
+    <div class="sec-title">使用教程</div>
+    <div class="card" style="padding:16px;font-size:13px;line-height:1.85;color:#4a4a54">
+      <p><b>1. 配置 API</b><br>进入「设置 → API 设置」，填写接口地址与密钥，拉取模型并保存。</p>
+      <p><b>2. 创建角色</b><br>在「档案」中创建角色并生成通讯号。</p>
+      <p><b>3. 添加好友</b><br>在「聊天 → 通讯录 → +」中搜索通讯号添加好友。</p>
+      <p><b>4. 开始聊天</b><br>好友将在 3-10 秒内回复。长按气泡可编辑、删除或重说。</p>
+      <p><b>5. 桌面编辑</b><br>长按桌面任意应用进入编辑模式，可拖拽排序或删除。</p>
+    </div>
+  </div>
+</div>
+</script>
+
+<script type="text/x-template" id="tpl-beauty">
+<div class="app">
+  <div class="apphdr">
+    <button class="hb" @click="$emit('close')">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="ht">美化</div>
+  </div>
+  <div class="appbody">
+    <div class="sec-title">桌面背景</div>
+    <div class="card" style="padding:16px;display:flex;gap:14px;align-items:center">
+      <div class="imgpicker" :style="store.settings.wallpaper?{backgroundImage:`url(${store.settings.wallpaper})`,border:'none'}:{}" @click="pickWall">
+        <span v-if="!store.settings.wallpaper">上传</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--c-sub);line-height:1.7">
+        上传自定义桌面背景
+        <br><button v-if="store.settings.wallpaper" style="color:#e5484d;font-size:12.5px;margin-top:6px" @click="clearWall">清除</button>
+      </div>
+    </div>
+
+    <div class="sec-title">全局字体包</div>
+    <div class="card" style="padding:16px">
+      <input ref="fontInput" type="file" accept=".ttf,.otf,.woff,.woff2" style="display:none" @change="onFont">
+      <button class="btn btn-ghost btn-block" @click="$refs.fontInput.click()">上传字体文件</button>
+      <div v-if="store.settings.fontName" style="font-size:12px;color:var(--c-sub);margin-top:10px;text-align:center">
+        当前：{{ store.settings.fontName }}
+        <button style="color:#e5484d;margin-left:8px" @click="clearFont">移除</button>
+      </div>
+    </div>
+
+    <div class="sec-title">自定义全局 CSS</div>
+    <div class="card" style="padding:12px">
+      <textarea class="inp" rows="5" v-model="css" style="font-family:ui-monospace,monospace;font-size:12px"
+        placeholder="仅作用于手机桌面，例如：&#10;.app-label{ color:#333; }"></textarea>
+      <button class="btn btn-primary btn-block" style="margin-top:10px" @click="applyCss">应用</button>
+    </div>
+
+    <div class="sec-title">自定义全局 JS</div>
+    <div class="card" style="padding:12px">
+      <textarea class="inp" rows="5" v-model="js" style="font-family:ui-monospace,monospace;font-size:12px"
+        placeholder="仅作用于手机桌面，可访问 window.__phone"></textarea>
+      <button class="btn btn-primary btn-block" style="margin-top:10px" @click="applyJs">执行</button>
+    </div>
+  </div>
+</div>
+</script>
+
+<!-- ============================================================
+     模板：设置
+     ============================================================ -->
+<script type="text/x-template" id="tpl-settings">
+<div class="app">
+  <div class="apphdr">
+    <button class="hb" @click="sub?sub=null:$emit('close')">
+      <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="ht">{{ subTitle }}</div>
+    <div class="hr" v-if="sub==='api'">
+      <button class="hb" @click="newApi">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="appbody">
+    <!-- 主列表 -->
+    <template v-if="!sub">
+      <div class="card" style="overflow:hidden;margin-top:8px">
+        <div class="row-item" @click="sub='api'">
+          <div class="ri-title">全局 API 设置</div>
+          <div class="ri-sub">{{ store.settings.apiConfigs.length }} 个配置</div>
+          <div class="ri-arrow"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        </div>
+        <div class="row-item" @click="sub='prompt'">
+          <div class="ri-title">全局提示词设置</div>
+          <div class="ri-arrow"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        </div>
+        <div class="row-item" @click="sub='data'">
+          <div class="ri-title">应用数据管理</div>
+          <div class="ri-arrow"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        </div>
+      </div>
+
+      <div class="sec-title">显示</div>
+      <div class="card" style="overflow:hidden">
+        <div class="row-item">
+          <div class="ri-title">显示状态栏</div>
+          <div class="sw" :class="{on:store.settings.showStatusBar}" @click="toggle('showStatusBar')"></div>
+        </div>
+        <div class="row-item">
+          <div class="ri-title">隐藏思维链</div>
+          <div class="sw" :class="{on:store.settings.hideThink}" @click="toggle('hideThink')"></div>
+        </div>
+      </div>
+
+      <div class="sec-title">提示词拼接顺序</div>
+      <div class="card" style="padding:14px;font-size:12.5px;line-height:1.9;color:#6d6d78">
+        <div v-for="(p,i) in store.settings.promptOrder" :key="p.id">
+          {{ i+1 }}. {{ p.label }}
+          <span class="tag" :class="{g:store.settings.promptEnabled[p.id]}" style="margin-left:6px">
+            {{ store.settings.promptEnabled[p.id] ? '启用' : '关闭' }}
+          </span>
+        </div>
+      </div>
+    </template>
+
+    <!-- API 设置 -->
+    <template v-else-if="sub==='api'">
+      <div v-if="!store.settings.apiConfigs.length" class="empty">还没有 API 配置<br>点击右上角 + 新建</div>
+      <div v-for="a in store.settings.apiConfigs" :key="a.id" class="entry">
+        <div class="et">{{ a.name }}</div>
+        <div class="ec" style="-webkit-line-clamp:2">
+          {{ a.protocol === 'claude' ? 'Claude 协议' : 'OpenAI 协议' }} · {{ a.baseUrl || '未填写地址' }} · {{ a.model || '未选择模型' }}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <span class="tag" :class="{g:store.settings.activeApiId===a.id}">
+            {{ store.settings.activeApiId===a.id ? '当前使用' : '点击启用' }}
+          </span>
+          <span class="tag b" v-if="a.vision">视觉</span>
+          <span class="tag o" v-if="a.imageGen">生图</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-ghost" style="padding:7px 13px;font-size:12.5px" @click="useApi(a)">启用</button>
+          <button class="btn btn-ghost" style="padding:7px 13px;font-size:12.5px" @click="editApi(a)">编辑</button>
+          <button class="btn btn-danger" style="padding:7px 13px;font-size:12.5px" @click="delApi(a)">删除</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- 提示词 -->
+    <template v-else-if="sub==='prompt'">
+      <div style="font-size:12.5px;color:var(--c-sub);line-height:1.75;margin:8px 4px 14px">
+        调整下方顺序将真实影响每次对话的提示词拼接。上下箭头可移动位置，点击开关可启用或禁用该条目。
+      </div>
+      <div v-for="(p,i) in store.settings.promptOrder" :key="p.id" class="order-item">
+        <div class="drag">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:13.5px;font-weight:560">{{ i+1 }}. {{ p.label }}</div>
+          <div style="font-size:11px;color:var(--c-sub);margin-top:2px">{{ partPreview(p.id) }}</div>
+        </div>
+        <button class="hb" @click="moveUp(i)">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>
+        </button>
+        <button class="hb" @click="moveDown(i)">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="sw" :class="{on:store.settings.promptEnabled[p.id]}" @click="togglePrompt(p.id)"></div>
+      </div>
+    </template>
+
+    <!-- 数据管理 -->
+    <template v-else-if="sub==='data'">
+      <div class="card" style="padding:16px;margin-top:8px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px">存储占用总览</div>
+        <div class="data-bar" style="padding:0">
+          <div class="bar"><i :style="{width: usedPct+'%'}"></i></div>
+          <div style="font-size:12px;color:var(--c-sub);white-space:nowrap">{{ fmtSize(totalSize) }}</div>
+        </div>
+      </div>
+
+      <div class="sec-title">数据分区</div>
+      <div class="card" style="overflow:hidden">
+        <div v-for="s in sizes" :key="s.name" class="row-item" style="cursor:default">
+          <div class="ri-stack">
+            <div class="top"><span class="ri-title">{{ s.label }}</span></div>
+            <div class="bot">{{ s.count }} 条记录 · {{ fmtSize(s.size) }}</div>
+          </div>
+          <button class="btn btn-danger" style="padding:6px 12px;font-size:12px" @click="clearStore(s)">清理</button>
+        </div>
+      </div>
+
+      <div class="sec-title">危险操作</div>
+      <div class="card" style="overflow:hidden">
+        <div class="row-item" @click="clearAll">
+          <div class="ri-title" style="color:#e5484d">清空全部数据</div>
+          <div class="ri-arrow"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></div>
+        </div>
+      </div>
+
+      <div class="sec-title">变量清单</div>
+      <div class="card" style="padding:14px;font-size:11.5px;line-height:1.9;
+           font-family:ui-monospace,monospace;color:#6d6d78;max-height:260px;overflow-y:auto">
+        <div v-for="v in varsList" :key="v.k">
+          <span style="color:#4a5b9e">{{ v.k }}</span> = {{ v.v }}
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- API 编辑 -->
+  <div v-if="apiEdit" class="sheet-mask" @click="apiEdit=null">
+    <div class="sheet" @click.stop style="padding:18px 20px 22px;max-height:88%">
+      <div class="sheet-title" style="padding-left:0">{{ apiEdit.id ? '编辑' : '新建' }} API 配置</div>
+      <div class="field"><label>配置名称</label><input class="inp" v-model="apiEdit.name" placeholder="如：主力模型"></div>
+      <div class="field">
+        <label>协议</label>
+        <div class="seg">
+          <button :class="{on:apiEdit.protocol==='openai'}" @click="apiEdit.protocol='openai'">OpenAI</button>
+          <button :class="{on:apiEdit.protocol==='claude'}" @click="apiEdit.protocol='claude'">Claude</button>
+        </div>
+      </div>
+      <div class="field"><label>接口地址</label><input class="inp" v-model="apiEdit.baseUrl" placeholder="https://api.openai.com"></div>
+      <div class="field"><label>API Key</label><input class="inp" type="password" v-model="apiEdit.apiKey"></div>
+      <div class="field">
+        <label>模型</label>
+        <div style="display:flex;gap:8px">
+          <input class="inp" v-model="apiEdit.model" placeholder="gpt-4o-mini">
+          <button class="btn btn-ghost" style="flex:none;padding:11px 14px;font-size:12.5px" @click="pullModels">拉取</button>
+        </div>
+        <div v-if="models.length" style="margin-top:8px;max-height:150px;overflow-y:auto;
+             border:1px solid var(--c-line);border-radius:10px">
+          <div v-for="m in models" :key="m" class="sheet-item" style="padding:9px 12px;font-size:12.5px"
+               @click="apiEdit.model=m;models=[]">{{ m }}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px">
+        <div class="field" style="flex:1"><label>温度 {{ apiEdit.temperature }}</label>
+          <input type="range" min="0" max="2" step="0.1" v-model.number="apiEdit.temperature" style="width:100%">
+        </div>
+        <div class="field" style="flex:1"><label>最大输出</label>
+          <input class="inp" type="number" v-model.number="apiEdit.maxTokens">
+        </div>
+      </div>
+      <div class="row-item" style="background:none;padding:10px 0">
+        <div class="ri-title">支持视觉</div>
+        <div class="sw" :class="{on:apiEdit.vision}" @click="apiEdit.vision=!apiEdit.vision"></div>
+      </div>
+      <div class="row-item" style="background:none;padding:10px 0">
+        <div class="ri-title">支持生图</div>
+        <div class="sw" :class="{on:apiEdit.imageGen}" @click="apiEdit.imageGen=!apiEdit.imageGen"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-ghost" style="flex:1" @click="apiEdit=null">取消</button>
+        <button class="btn btn-primary" style="flex:1" @click="saveApi">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+</script>
+
+<script>
+/* ============================================================================
+   0. 工具
+   ============================================================================ */
+const { createApp, reactive, ref, computed, onMounted, onUnmounted, nextTick, watch, h } = Vue;
+
+const uid = (p='') => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function fmtSize(n){
+  if(!n) return '0 B';
+  if(n < 1024) return n + ' B';
+  if(n < 1048576) return (n/1024).toFixed(1) + ' KB';
+  return (n/1048576).toFixed(2) + ' MB';
+}
+function fmtTime(ts){
+  const d = new Date(ts || Date.now());
+  const p = n => String(n).padStart(2,'0');
+  return p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function fmtDateTime(ts){
+  const d = new Date(ts || Date.now());
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function textSize(o){ try { return new Blob([JSON.stringify(o)]).size; } catch(e){ return 0; } }
+
+/* ============================================================================
+   1. IndexedDB 数据层
+   ============================================================================ */
+const DB_NAME = 'tinyphone_db';
+const DB_VER = 1;
+const SCHEMA = {
+  kv:         { keyPath: 'key' },
+  blobs:      { keyPath: 'id' },
+  accounts:   { keyPath: 'id' },
+  chars:      { keyPath: 'id' },
+  messages:   { keyPath: 'id', indexes: [['chatId','chatId']] },
+  memories:   { keyPath: 'id' },
+  worldbooks: { keyPath: 'id' }
+};
+const STORE_LABEL = {
+  kv:'系统设置 / API / 桌面布局', blobs:'图片与文件资源', accounts:'用户账号',
+  chars:'角色档案', messages:'聊天记录', memories:'记忆库', worldbooks:'世界书'
+};
+
+let _db = null;
+
+function openDB(){
+  return new Promise((resolve, reject) => {
+    if(!window.indexedDB){ reject(new Error('NO_IDB')); return; }
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      for(const [name, cfg] of Object.entries(SCHEMA)){
+        if(d.objectStoreNames.contains(name)) continue;
+        const s = d.createObjectStore(name, { keyPath: cfg.keyPath });
+        (cfg.indexes || []).forEach(([n, kp]) => s.createIndex(n, kp));
+      }
+    };
+    req.onsuccess = () => { _db = req.result; resolve(_db); };
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error('数据库被阻塞，请关闭其他标签页'));
+  });
+}
+function dbPut(store, val){
+  return new Promise((res, rej) => {
+    const t = _db.transaction(store, 'readwrite');
+    const r = t.objectStore(store).put(val);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function dbGet(store, key){
+  return new Promise((res, rej) => {
+    const r = _db.transaction(store).objectStore(store).get(key);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function dbAll(store){
+  return new Promise((res, rej) => {
+    const r = _db.transaction(store).objectStore(store).getAll();
+    r.onsuccess = () => res(r.result || []);
+    r.onerror = () => rej(r.error);
+  });
+}
+function dbDel(store, key){
+  return new Promise((res, rej) => {
+    const r = _db.transaction(store, 'readwrite').objectStore(store).delete(key);
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
+  });
+}
+function dbClear(store){
+  return new Promise((res, rej) => {
+    const r = _db.transaction(store, 'readwrite').objectStore(store).clear();
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
+  });
+}
+
+/* --- Blob 管理 --- */
+const _urlCache = new Map();
+async function saveBlob(file){
+  const id = uid('b_');
+  const blob = file instanceof Blob ? file : new Blob([file]);
+  await dbPut('blobs', { id, blob, size: blob.size, type: blob.type, name: file.name || '', createdAt: Date.now() });
+  return id;
+}
+async function getBlobURL(id){
+  if(!id) return null;
+  if(_urlCache.has(id)) return _urlCache.get(id);
+  const rec = await dbGet('blobs', id);
+  if(!rec || !rec.blob) return null;
+  const url = URL.createObjectURL(rec.blob);
+  _urlCache.set(id, url);
+  return url;
+}
+/** 替换图片资源：保存新 blob，自动清理旧 blob（换头像必走此路径） */
+async function replaceBlob(oldId, file){
+  const nid = await saveBlob(file);
+  if(oldId){ await dbDel('blobs', oldId); if(_urlCache.has(oldId)){ URL.revokeObjectURL(_urlCache.get(oldId)); _urlCache.delete(oldId); } }
+  return nid;
+}
+async function removeBlob(id){
+  if(!id) return;
+  await dbDel('blobs', id);
+  if(_urlCache.has(id)){ URL.revokeObjectURL(_urlCache.get(id)); _urlCache.delete(id); }
+}
+function pickFile(accept='image/*'){
+  return new Promise(resolve => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = accept;
+    inp.onchange = () => resolve(inp.files[0] || null);
+    inp.click();
+  });
+}
+
+/* ============================================================================
+   2. 全局状态
+   ============================================================================ */
+const DEFAULT_DESKTOP_ITEMS = [
+  { id:'d-postcard', type:'postcard', col:0, row:0, w:4, h:2, cfg:{} },
+  { id:'d-polaroid', type:'polaroid', col:0, row:2, w:2, h:2, cfg:{} },
+  { id:'d-chat',     type:'app', appId:'chat',     col:2, row:2, w:1, h:1 },
+  { id:'d-wb',       type:'app', appId:'worldbook',col:3, row:2, w:1, h:1 },
+  { id:'d-mem',      type:'app', appId:'memory',   col:2, row:3, w:1, h:1 },
+  { id:'d-arc',      type:'app', appId:'archive',  col:3, row:3, w:1, h:1 },
+  { id:'d-dialog',   type:'dialog', col:0, row:4, w:2, h:2, cfg:{} },
+  { id:'d-music',    type:'music',  col:2, row:4, w:2, h:2, cfg:{} }
+];
+const DEFAULT_DOCK_ITEMS = [
+  { id:'k-store',  type:'app', appId:'store' },
+  { id:'k-notice', type:'app', appId:'notice' },
+  { id:'k-beauty', type:'app', appId:'beauty' },
+  { id:'k-set',    type:'app', appId:'settings' }
+];
+
+const store = reactive({
+  ready: false,
+  settings: {
+    showStatusBar: true,
+    hideThink: false,
+    wallpaper: null,
+    fontName: null,
+    fontBlobId: null,
+    globalCss: '',
+    globalJs: '',
+    apiConfigs: [],
+    activeApiId: null,
+    memoryApiId: null,
+    memoryThreshold: 50,
+    promptOrder: [
+      { id:'system',      label:'系统提示词' },
+      { id:'wbPre',       label:'世界书（前置）' },
+      { id:'charPersona', label:'好友人设' },
+      { id:'wbMid',       label:'世界书（中置）' },
+      { id:'userPersona', label:'用户人设' },
+      { id:'memory',      label:'记忆' },
+      { id:'wbPost',      label:'世界书（后置）' },
+      { id:'context',     label:'最近上下文' }
+    ],
+    promptEnabled: {
+      system:true, wbPre:true, charPersona:true, wbMid:true,
+      userPersona:true, memory:true, wbPost:true, context:true
+    }
+  },
+  desktopItems: JSON.parse(JSON.stringify(DEFAULT_DESKTOP_ITEMS)),
+  dockItems: JSON.parse(JSON.stringify(DEFAULT_DOCK_ITEMS)),
+  accounts: [],
+  currentAccountId: null,
+  chars: [],
+  messages: {},   // chatId -> [msg]
+  memories: [],
+  worldbooks: [],
+  moments: {}     // accountId -> { cover, posts:[] }
+});
+
+/* 图标 */
+const ICONS = {
+  chat:'<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.2A8.4 8.4 0 0 1 4 11.5a8.4 8.4 0 0 1 8.5-8.4A8.4 8.4 0 0 1 21 11.5Z"/>',
+  worldbook:'<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v16H6.5A2.5 2.5 0 0 0 4 20.5Z"/><path d="M4 4.5v16"/>',
+  memory:'<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/>',
+  archive:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  store:'<path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+  notice:'<path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10.5 21a2 2 0 0 0 3 0"/>',
+  beauty:'<path d="M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.4-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h1.5a4.5 4.5 0 0 0 4.5-4.5C21 5.4 16.9 3 12 3Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="15" cy="8.5" r="1"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>'
+};
+const APP_META = {
+  chat:{ name:'聊天', color:'#7b8cff' },
+  worldbook:{ name:'世界书', color:'#9aabcd' },
+  memory:{ name:'记忆', color:'#bda0cc' },
+  archive:{ name:'档案', color:'#d3ab98' },
+  store:{ name:'商店', color:'#93c9b2' },
+  notice:{ name:'通知', color:'#d4bf94' },
+  beauty:{ name:'美化', color:'#d5a2b0' },
+  settings:{ name:'设置', color:'#a8a8b3' }
+};
+
+/* ============================================================================
+   3. 持久化辅助
+   ============================================================================ */
+async function saveSettings(){
+  await dbPut('kv', { key:'settings', value: JSON.parse(JSON.stringify(store.settings)) });
+}
+async function saveDesktop(){
+  await dbPut('kv', { key:'desktop', value: JSON.parse(JSON.stringify({ items: store.desktopItems, dock: store.dockItems })) });
+}
+async function saveChars(){
+  for(const c of store.chars) await dbPut('chars', JSON.parse(JSON.stringify(c)));
+}
+async function saveMessages(chatId){
+  const list = store.messages[chatId] || [];
+  for(const m of list) await dbPut('messages', JSON.parse(JSON.stringify(m)));
+}
+async function saveMemories(){
+  for(const m of store.memories) await dbPut('memories', JSON.parse(JSON.stringify(m)));
+}
+async function saveWorldbooks(){
+  for(const b of store.worldbooks) await dbPut('worldbooks', JSON.parse(JSON.stringify(b)));
+}
+async function saveAccounts(){
+  for(const a of store.accounts) await dbPut('accounts', JSON.parse(JSON.stringify(a)));
+}
+
+/* ============================================================================
+   4. API 调用层
+   ============================================================================ */
+function getApi(id){
+  const s = store.settings;
+  return s.apiConfigs.find(a => a.id === (id || s.activeApiId)) || s.apiConfigs[0] || null;
+}
+async function callAI({ apiId, system, messages, temperature, maxTokens }){
+  const cfg = getApi(apiId);
+  if(!cfg) throw new Error('尚未配置 API，请前往「设置 → API 设置」');
+  if(!cfg.apiKey && !cfg.baseUrl) throw new Error('API 配置不完整');
+  const base = (cfg.baseUrl || '').replace(/\/+$/, '');
+  const temp = temperature != null ? temperature : (cfg.temperature != null ? cfg.temperature : 0.85);
+  const mt = maxTokens || cfg.maxTokens || 2048;
+
+  let url, headers, body;
+  if(cfg.protocol === 'claude'){
+    url = base + '/v1/messages';
+    headers = {
+      'Content-Type':'application/json',
+      'x-api-key': cfg.apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    };
+    body = { model: cfg.model, system: system || '', messages, temperature: temp, max_tokens: mt };
+  } else {
+    url = base + '/v1/chat/completions';
+    headers = { 'Content-Type':'application/json', 'Authorization':'Bearer ' + cfg.apiKey };
+    const msgs = system ? [{ role:'system', content: system }, ...messages] : messages;
+    body = { model: cfg.model, messages: msgs, temperature: temp, max_tokens: mt };
+  }
+
+  const resp = await fetch(url, { method:'POST', headers, body: JSON.stringify(body) });
+  if(!resp.ok){
+    const txt = await resp.text().catch(()=> '');
+    throw new Error(`请求失败 ${resp.status}: ${txt.slice(0,180)}`);
+  }
+  const data = await resp.json();
+  if(cfg.protocol === 'claude'){
+    return (data.content || []).map(c => c.text || '').join('');
+  }
+  return data.choices?.[0]?.message?.content || '';
+}
+async function pullModels(cfg){
+  const base = (cfg.baseUrl || '').replace(/\/+$/, '');
+  const url = base + '/v1/models';
+  const headers = cfg.protocol === 'claude'
+    ? { 'x-api-key': cfg.apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }
+    : { 'Authorization':'Bearer ' + cfg.apiKey };
+  const resp = await fetch(url, { headers });
+  if(!resp.ok) throw new Error('拉取失败 ' + resp.status);
+  const data = await resp.json();
+  return (data.data || data.models || []).map(m => m.id || m.name).filter(Boolean);
+}
+
+/* ============================================================================
+   5. 提示词组装
+   ============================================================================ */
+function buildSystemPrompt(char, account, ctx){
+  const parts = [];
+  const on = store.settings.promptEnabled;
+  const order = store.settings.promptOrder;
+
+  const wb = store.worldbooks.find(b => b.id === char.worldbookId);
+  const wbText = (pos) => {
+    if(!wb) return '';
+    const texts = wb.entries.filter(e => e.inject && e.mode === 'always');
+    return texts.filter(e => (wb.pos === pos)).map(e => e.content).join('\n');
+  };
+
+  const recentText = (ctx?.recent || []).map(m =>
+    (m.role === 'user' ? (account.uid) : char.name) + '：' + (m.plain || '')
+  ).join('\n');
+
+  const memText = (ctx?.memories || []).map(m => `【${m.title}】${m.content}`).join('\n');
+
+  const map = {
+    system: `你正在扮演「${char.name}」，一个真实的人。你只能输出角色本人的话语与行为，绝不能代替用户发言、绝不能描写用户的动作或心理。\n\n【输出格式铁律】\n1. 每次回复必须先输出思维链：<think>你的内心想法</think>，然后再输出正文。\n2. 正文由若干段落组成，段落之间用空行（双回车）分隔，每一段会被渲染为一个独立气泡。\n3. 旁白（环境、动作、神态描写）必须用 <narratage>内容</narratage> 包裹，且单独成段。\n4. 每段旁白不得超过 50 字，旁白总量不得超过整条回复的 50%。\n5. 每次回复必须有 1-6 句角色话语，可以没有旁白，但不能没有话语。\n6. 禁止捏造除 <think> 与 <narratage> 以外的任何标签（如 <tool> 仅在你确实需要检索记忆时使用）。\n7. 不要模仿历史上下文中的格式标记，不要自己打时间戳，不要输出任何解释性文字。\n\n【行为准则】\n- 优先遵循角色内核，不要过度揣摩用户。\n- 主动推动剧情，避免封闭式的一次性回复。\n- 保持口语化、自然，像真人在手机上打字。`,
+    charPersona: `【角色设定】\n姓名：${char.name}\n性别：${char.gender}\n${char.jung ? '荣格八维：'+char.jung+'\n' : ''}${char.mbti ? '十六型人格：'+char.mbti+'\n' : ''}人设：${char.persona}${char.bg ? '\n背景：'+char.bg : ''}${char.taboo ? '\n禁忌：'+char.taboo : ''}${char.refDialog ? '\n参考对话：'+char.refDialog : ''}`,
+    wbPre: wbText('pre'),
+    wbMid: wbText('mid'),
+    wbPost: wbText('post'),
+    userPersona: `【对方（用户）设定】\n昵称：${account.uid}\n性别：${account.gender||'未知'}\n${account.persona ? '人设：'+account.persona : ''}`,
+    memory: memText ? `【你记得的事】\n${memText}` : '',
+    context: recentText ? `【最近对话】\n${recentText}` : ''
+  };
+
+  for(const p of order){
+    if(!on[p.id]) continue;
+    const v = map[p.id];
+    if(v && String(v).trim()) parts.push(String(v).trim());
+  }
+  return parts.join('\n\n');
+}
+
+/* 解析回复为块 */
+function parseReply(raw){
+  const blocks = [];
+  if(!raw) return blocks;
+  const re = /<(think|narratage|tool)>([\s\S]*?)<\/\1>/g;
+  let last = 0, m;
+  const seq = [];
+  while((m = re.exec(raw))){
+    if(m.index > last) seq.push({ t:'text', v: raw.slice(last, m.index) });
+    seq.push({ t: m[1], v: m[2] });
+    last = re.lastIndex;
+  }
+  if(last < raw.length) seq.push({ t:'text', v: raw.slice(last) });
+
+  for(const s of seq){
+    if(s.t === 'text'){
+      s.v.split(/\n\s*\n/).forEach(p => { if(p.trim()) blocks.push({ type:'bubble', text:p.trim() }); });
+    } else if(s.t === 'think'){
+      blocks.push({ type:'think', text: s.v.trim(), _open:false });
+    } else if(s.t === 'narratage'){
+      const t = s.v.trim();
+      if(t) blocks.push({ type:'narr', text: t.length > 50 ? t.slice(0,50) : t });
+    } else {
+      let name = '检索';
+      try { const j = JSON.parse(s.v); name = j.name || name; } catch(e){}
+      blocks.push({ type:'tool', name, text: s.v.trim(), _open:false });
+    }
+  }
+  return blocks;
+}
+
+/* ============================================================================
+   6. 组件 —— 桌面小组件
+   ============================================================================ */
+const PostcardWidget = {
+  template: '#tpl-postcard',
+  props: ['item'],
+  setup(props){
+    const cfg = reactive(Object.assign({ base:'#e9eaf2', image:null, avatar:null, name:'', sign:'' }, props.item.cfg || {}));
+    props.item.cfg = cfg;
+
+    async function pickBase(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = e => { cfg.base = null; cfg.image = e.target.result; saveDesktop(); };
+      r.readAsDataURL(f);
+    }
+    async function pickBg(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = e => { cfg.image = e.target.result; saveDesktop(); };
+      r.readAsDataURL(f);
+    }
+    async function pickAvatar(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = e => { cfg.avatar = e.target.result; saveDesktop(); };
+      r.readAsDataURL(f);
+    }
+    function editText(k){
+      const v = prompt(k === 'name' ? '修改昵称' : '修改签名', cfg[k] || '');
+      if(v !== null){ cfg[k] = v; saveDesktop(); }
+    }
+    return { cfg, pickBase, pickBg, pickAvatar, editText };
+  }
+};
+
+const PolaroidWidget = {
+  template: '#tpl-polaroid',
+  props: ['item'],
+  setup(props){
+    const cfg = reactive(Object.assign({ image:null }, props.item.cfg || {}));
+    props.item.cfg = cfg;
+    async function pick(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = e => { cfg.image = e.target.result; saveDesktop(); };
+      r.readAsDataURL(f);
+    }
+    return { cfg, pick };
+  }
+};
+
+const MusicWidget = {
+  template: '#tpl-music',
+  props: ['item'],
+  setup(props){
+    const cfg = reactive(Object.assign({ title:'未命名歌曲', duration: 214 }, props.item.cfg || {}));
+    props.item.cfg = cfg;
+    const playing = ref(false);
+    const cur = ref(0);
+    let timer = null;
+    const total = computed(() => cfg.duration || 214);
+    const progress = computed(() => total.value ? (cur.value / total.value) * 100 : 0);
+    function toggle(){
+      playing.value = !playing.value;
+      if(playing.value){
+        timer = setInterval(() => {
+          cur.value += 1;
+          if(cur.value >= total.value){ cur.value = 0; playing.value = false; clearInterval(timer); }
+        }, 1000);
+      } else clearInterval(timer);
+    }
+    function rename(){
+      const v = prompt('歌曲名', cfg.title);
+      if(v !== null){ cfg.title = v; saveDesktop(); }
+    }
+    function fmt(s){
+      const m = Math.floor(s / 60), ss = s % 60;
+      return m + ':' + String(ss).padStart(2, '0');
+    }
+    onUnmounted(() => clearInterval(timer));
+    return { cfg, playing, cur, total, progress, toggle, rename, fmt };
+  }
+};
+
+const DialogWidget = {
+  template: '#tpl-dialog',
+  props: ['item'],
+  setup(props){
+    const cfg = reactive(Object.assign({ t1:'你好呀', t2:'在的~', av1:null, av2:null }, props.item.cfg || {}));
+    props.item.cfg = cfg;
+    function edit(n){
+      const v = prompt('修改内容', n === 1 ? cfg.t1 : cfg.t2);
+      if(v !== null){ if(n === 1) cfg.t1 = v; else cfg.t2 = v; saveDesktop(); }
+    }
+    async function pickAv(n){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = e => { if(n === 1) cfg.av1 = e.target.result; else cfg.av2 = e.target.result; saveDesktop(); };
+      r.readAsDataURL(f);
+    }
+    return { cfg, edit, pickAv };
+  }
+};
+
+/* ============================================================================
+   7. 组件 —— 桌面
+   ============================================================================ */
+const DesktopView = {
+  template: '#tpl-desktop',
+  emits: ['open'],
+  components: { PostcardWidget, PolaroidWidget, MusicWidget, DialogWidget },
+  setup(props, { emit }){
+    const edit = ref(false);
+    const dragId = ref(null);
+    const grid = ref(null);
+    const dockEl = ref(null);
+    const items = computed(() => store.desktopItems);
+    const dockItems = computed(() => store.dockItems);
+
+    const appColor = id => (APP_META[id] || {}).color || '#b0b0bc';
+    const appName = id => (APP_META[id] || {}).name || id;
+    const iconPath = id => ICONS[id] || '';
+
+    let pressTimer = null, dragging = null, startX = 0, startY = 0, moved = false;
+
+    function onBgDown(){
+      if(edit.value) edit.value = false;
+    }
+
+    function onDown(e, it, isDock){
+      if(e.button === 1 || e.button === 2) return;
+      startX = e.clientX; startY = e.clientY; moved = false;
+      clearTimeout(pressTimer);
+
+      const startDragNow = () => {
+        if(isDock) return;
+        dragging = { it, isDock:false };
+        dragId.value = it.id;
+        edit.value = true;
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      };
+
+      pressTimer = setTimeout(() => { startDragNow(); }, 420);
+
+      const cancel = (ev) => {
+        if(Math.abs(ev.clientX - startX) > 8 || Math.abs(ev.clientY - startY) > 8){
+          moved = true;
+          clearTimeout(pressTimer);
+        }
+      };
+      window.addEventListener('pointermove', cancel, { once:false });
+      const upOnce = () => {
+        clearTimeout(pressTimer);
+        window.removeEventListener('pointermove', cancel);
+        window.removeEventListener('pointerup', upOnce);
+      };
+      window.addEventListener('pointerup', upOnce);
+    }
+
+    function onMove(e){
+      if(!dragging) return;
+      const g = grid.value;
+      if(!g) return;
+      const r = g.getBoundingClientRect();
+      const gap = 14;
+      const cw = (r.width - gap * 3) / 4;
+      const ch = 72 + gap;
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top + (document.querySelector('.desk-scroll')?.scrollTop || 0);
+      let col = Math.floor((x + gap / 2) / (cw + gap));
+      let row = Math.floor((y + gap / 2) / ch);
+      col = clamp(col, 0, 4 - dragging.it.w);
+      row = Math.max(0, row);
+      if(col !== dragging.it.col || row !== dragging.it.row){
+        tryMove(dragging.it, col, row);
+      }
+    }
+
+    function tryMove(item, col, row){
+      const w = item.w, h = item.h;
+      const overlap = (a, b) => !(a.col + a.w <= b.col || b.col + b.w <= a.col || a.row + a.h <= b.row || b.row + b.h <= a.row);
+      const target = { col, row, w, h };
+      const conflicts = store.desktopItems.filter(o => o !== item && overlap(o, target));
+      if(conflicts.length === 0){
+        item.col = col; item.row = row;
+      } else if(conflicts.length === 1 && conflicts[0].w === w && conflicts[0].h === h){
+        const o = conflicts[0];
+        const oc = o.col, or = o.row;
+        o.col = item.col; o.row = item.row;
+        item.col = oc; item.row = or;
+      }
+    }
+
+    function onUp(){
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if(dragging){ saveDesktop(); }
+      dragging = null;
+      dragId.value = null;
+    }
+
+    function onClick(e, it){
+      if(edit.value) return;
+      if(it.type === 'app' && !it.isDock) emit('open', it.appId);
+    }
+
+    async function remove(it){
+      const i = store.desktopItems.indexOf(it);
+      if(i >= 0) store.desktopItems.splice(i, 1);
+      await saveDesktop();
+    }
+    async function removeDock(it){
+      const i = store.dockItems.indexOf(it);
+      if(i >= 0) store.dockItems.splice(i, 1);
+      await saveDesktop();
+    }
+
+    return { store, edit, dragId, items, dockItems, grid, dockEl, appColor, appName, iconPath,
+             onBgDown, onDown, onClick, remove, removeDock };
+  }
+};
+
+/* ============================================================================
+   8. 组件 —— 聊天应用
+   ============================================================================ */
+const ChatApp = {
+  template: '#tpl-chat',
+  emits: ['close'],
+  setup(props, { emit }){
+    const mode = ref('login');
+    const tab = ref('msg');
+    const page = ref('home');
+    const lf = reactive({ uid:'', pwd:'' });
+    const rf = reactive({ uid:'', pwd:'', avatar:null, gender:'男', persona:'', jung:'', mbti:'', bg:'' });
+    const searchCode = ref('');
+    const searchResult = ref(null);
+    const searched = ref(false);
+    const curFriend = ref(null);
+    const msgs = ref([]);
+    const draft = ref('');
+    const drawer = ref(false);
+    const timeAware = ref(false);
+    const typing = ref(false);
+    const ta = ref(null);
+    const roomBody = ref(null);
+    const moments = ref(false);
+    const pressMenu = ref(null);
+    const editSheet = ref(false);
+    const editText = ref('');
+    const profileSheet = ref(false);
+    const detail = ref(null);
+    const remarkDraft = ref('');
+    const cssChatDraft = ref('');
+    const cssBubbleDraft = ref('');
+    let pressTimer = null;
+
+    const acc = computed(() => store.accounts.find(a => a.id === store.currentAccountId) || null);
+    const friends = computed(() => {
+      if(!acc.value) return [];
+      return (acc.value.friends || []).map(id => store.chars.find(c => c.id === id)).filter(Boolean);
+    });
+    const tabTitle = computed(() => ({ msg:'消息', contacts:'通讯录', find:'发现', me:'我的' }[tab.value]));
+    const settings = computed(() => store.settings);
+    const momentsCfg = computed(() => {
+      const id = store.currentAccountId;
+      if(!id) return { cover:null, posts:[] };
+      if(!store.moments[id]) store.moments[id] = { cover:null, posts:[] };
+      return store.moments[id];
+    });
+
+    /* ---------- 认证 ---------- */
+    async function doRegister(){
+      if(!rf.uid || !rf.pwd) return toast('请填写账号与密码');
+      if(store.accounts.some(a => a.uid === rf.uid)) return toast('该账号已存在');
+      const a = {
+        id: uid('u_'), uid: rf.uid, pwd: rf.pwd, avatar: rf.avatar,
+        gender: rf.gender, persona: rf.persona, jung: rf.jung, mbti: rf.mbti, bg: rf.bg,
+        friends: [], createdAt: Date.now()
+      };
+      store.accounts.push(a);
+      await saveAccounts();
+      store.currentAccountId = a.id;
+      await dbPut('kv', { key:'currentAccount', value: a.id });
+      toast('注册成功');
+    }
+    async function doLogin(){
+      const a = store.accounts.find(x => x.uid === lf.uid && x.pwd === lf.pwd);
+      if(!a) return toast('账号或密码错误');
+      store.currentAccountId = a.id;
+      await dbPut('kv', { key:'currentAccount', value: a.id });
+      toast('登录成功');
+    }
+    async function logout(){
+      store.currentAccountId = null;
+      await dbPut('kv', { key:'currentAccount', value: null });
+      page.value = 'home'; tab.value = 'msg';
+    }
+    async function pickAvatar(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = e => { rf.avatar = e.target.result; };
+      r.readAsDataURL(f);
+    }
+    async function pickAccAvatar(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = async e => {
+        acc.value.avatar = e.target.result;
+        await saveAccounts();
+      };
+      r.readAsDataURL(f);
+    }
+    function editProfile(){ profileSheet.value = true; }
+    async function saveProfile(){ await saveAccounts(); profileSheet.value = false; toast('已保存'); }
+    function backHome(){ emit('close'); }
+
+    /* ---------- 好友 ---------- */
+    function isFriend(id){ return acc.value?.friends?.includes(id); }
+    function doSearch(){
+      searched.value = true;
+      const c = store.chars.find(x => x.code === searchCode.value.trim());
+      searchResult.value = c || null;
+    }
+    async function addFriend(c){
+      if(isFriend(c.id)) return;
+      acc.value.friends = acc.value.friends || [];
+      acc.value.friends.push(c.id);
+      await saveAccounts();
+      toast('已添加好友');
+      const chatId = chatIdOf(c.id);
+      if(!store.messages[chatId]) store.messages[chatId] = [];
+      const opening = c.opening && c.opening.trim() ? c.opening.trim() : '嗨，很高兴认识你！';
+      await pushMessage(chatId, {
+        role:'char', raw: opening, blocks: parseReply(opening), ts: Date.now()
+      });
+      searchResult.value = null; searchCode.value = '';
+      page.value = 'home'; tab.value = 'msg';
+    }
+    function chatIdOf(charId){ return (store.currentAccountId || 'anon') + '::' + charId; }
+    function lastMsg(charId){
+      const list = store.messages[chatIdOf(charId)] || [];
+      if(!list.length) return '还没有聊天记录';
+      const m = list[list.length - 1];
+      const txt = (m.blocks || []).filter(b => b.type === 'bubble').map(b => b.text).join(' ');
+      return (m.role === 'user' ? '我：' : '') + (txt || '...');
+    }
+    async function openRoom(f){
+      curFriend.value = f;
+      const cid = chatIdOf(f.id);
+      if(!store.messages[cid]) store.messages[cid] = [];
+      msgs.value = store.messages[cid];
+      remarkDraft.value = f.remark || '';
+      cssChatDraft.value = f.cssChat || '';
+      cssBubbleDraft.value = f.cssBubble || '';
+      detail.value = null;
+      page.value = 'room';
+      await nextTick();
+      scrollBottom();
+    }
+    function leaveRoom(){ page.value = 'home'; }
+
+    /* ---------- 消息 ---------- */
+    const avatarFor = (role) => {
+      if(role === 'user') return acc.value?.avatar ? { backgroundImage:`url(${acc.value.avatar})` } : {};
+      return curFriend.value?.avatar ? { backgroundImage:`url(${curFriend.value.avatar})` } : {};
+    };
+    const roomStyle = computed(() => {
+      const f = curFriend.value;
+      if(!f) return {};
+      let s = {};
+      if(f.roomBg) s.backgroundImage = `url(${f.roomBg})`;
+      return s;
+    });
+
+    async function pushMessage(chatId, msg){
+      const list = store.messages[chatId] || (store.messages[chatId] = []);
+      list.push(msg);
+      if(msgs.value !== list && curFriend.value && chatId === chatIdOf(curFriend.value.id)){
+        msgs.value = list;
+      }
+      await dbPut('messages', JSON.parse(JSON.stringify(msg)));
+      return msg;
+    }
+
+    function autoGrow(){
+      const el = ta.value;
+      if(!el) return;
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 110) + 'px';
+    }
+    function scrollBottom(){
+      const el = roomBody.value;
+      if(el) el.scrollTop = el.scrollHeight;
+    }
+    function onRoomScroll(){}
+
+    async function send(){
+      if(!draft.value.trim() || !curFriend.value) return;
+      const text = draft.value.trim();
+      draft.value = '';
+      await nextTick(); autoGrow();
+      const cid = chatIdOf(curFriend.value.id);
+      const m = {
+        id: uid('m_'), chatId: cid, role:'user',
+        raw: text, blocks: parseReply(text), ts: Date.now()
+      };
+      await pushMessage(cid, m);
+      await nextTick(); scrollBottom();
+      scheduleReply();
+    }
+
+    function insertNarr(){
+      draft.value += '<narratage></narratage>';
+      drawer.value = false;
+      nextTick(() => ta.value && ta.value.focus());
+    }
+
+    /* ---------- 回复调度 ---------- */
+    let replyTimer = null;
+    function scheduleReply(){
+      clearTimeout(replyTimer);
+      typing.value = true;
+      const delay = 3000 + Math.random() * 7000;
+      replyTimer = setTimeout(async () => {
+        typing.value = false;
+        await generateReply();
+      }, delay);
+    }
+
+    async function generateReply(){
+      const f = curFriend.value;
+      if(!f || !acc.value) return;
+      const cid = chatIdOf(f.id);
+      const list = store.messages[cid] || [];
+      try{
+        const recent = list.slice(-30).map(m => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: (m.blocks || []).filter(b => b.type === 'bubble').map(b => b.text).join('\n')
+        })).filter(m => m.content);
+        const system = buildSystemPrompt(f, acc.value, { recent });
+        const text = await callAI({
+          apiId: f.apiId,
+          system,
+          messages: recent.concat([{ role:'user', content:'（请继续扮演，输出你的下一条消息）' }])
+        });
+        const clean = (text || '').trim() || '<think>思考中</think>\n\n……';
+        const m = {
+          id: uid('m_'), chatId: cid, role:'char',
+          raw: clean, blocks: parseReply(clean), ts: Date.now()
+        };
+        await pushMessage(cid, m);
+        await nextTick(); scrollBottom();
+        checkMemoryThreshold(cid, f);
+      } catch(e){
+        toast(e.message || '回复失败');
+      }
+    }
+
+    /* ---------- 长按 ---------- */
+    function startPress(e, msg, block){
+      clearTimeout(pressTimer);
+      const x = e.clientX, y = e.clientY;
+      pressTimer = setTimeout(() => {
+        pressMenu.value = { msg, block };
+        if(navigator.vibrate) navigator.vibrate(12);
+      }, 450);
+    }
+    function cancelPress(){ clearTimeout(pressTimer); }
+
+    function menuEdit(){
+      editText.value = pressMenu.value.msg.raw;
+      editSheet.value = true;
+      pressMenu.value = null;
+    }
+    async function saveEdit(){
+      const m = msgs.value.find(x => x.raw === editText.value);
+      const target = pressMenu.value?.msg || window.__editTarget;
+      // 用备份定位
+      const t = editSheet.value._target || window.__editTarget;
+      if(t){
+        t.raw = editText.value;
+        t.blocks = parseReply(editText.value);
+        await dbPut('messages', JSON.parse(JSON.stringify(t)));
+      }
+      editSheet.value = false;
+      toast('已保存');
+    }
+    async function menuDelete(){
+      const { msg } = pressMenu.value;
+      const list = msgs.value;
+      const i = list.indexOf(msg);
+      if(i >= 0) list.splice(i, 1);
+      await dbDel('messages', msg.id);
+      pressMenu.value = null;
+      toast('已删除');
+    }
+    async function menuReroll(){
+      const { msg } = pressMenu.value;
+      const list = msgs.value;
+      const i = list.indexOf(msg);
+      if(i >= 0){
+        const removed = list.splice(i);
+        for(const r of removed) await dbDel('messages', r.id);
+      }
+      pressMenu.value = null;
+      scheduleReply();
+    }
+
+    /* ---------- 好友设置 ---------- */
+    async function saveRemark(){
+      if(!curFriend.value) return;
+      curFriend.value.remark = remarkDraft.value;
+      await dbPut('chars', JSON.parse(JSON.stringify(curFriend.value)));
+      toast('备注已保存');
+    }
+    async function pickRoomBg(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = async e => { curFriend.value.roomBg = e.target.result; };
+      r.readAsDataURL(f);
+    }
+    async function clearRoomBg(){ curFriend.value.roomBg = null; }
+    async function saveBeautify(){
+      const f = curFriend.value;
+      f.cssChat = cssChatDraft.value;
+      f.cssBubble = cssBubbleDraft.value;
+      await dbPut('chars', JSON.parse(JSON.stringify(f)));
+      applyFriendCss();
+      toast('美化已应用');
+    }
+    function applyFriendCss(){
+      const f = curFriend.value;
+      if(!f) return;
+      let el = document.getElementById('friend-css');
+      if(!el){
+        el = document.createElement('style');
+        el.id = 'friend-css';
+        document.head.appendChild(el);
+      }
+      el.textContent = `\n.room-${f.id}{${f.cssChat ? '' : ''}}\n` + (f.cssChat || '') +
+        `\n.room-${f.id} .bubble{${f.cssBubble || ''}}`;
+    }
+
+    /* ---------- 记忆阈值 ---------- */
+    async function checkMemoryThreshold(chatId, char){
+      const list = store.messages[chatId] || [];
+      const th = store.settings.memoryThreshold || 50;
+      if(list.length >= th && list.length % th === 0){
+        await summarize(chatId, char);
+      }
+    }
+    async function summarize(chatId, char){
+      const list = store.messages[chatId] || [];
+      if(list.length < 4) return;
+      const text = list.slice(-(store.settings.memoryThreshold || 50))
+        .map(m => (m.role === 'user' ? acc.value.uid : char.name) + '：' +
+          (m.blocks || []).filter(b => b.type === 'bubble').map(b => b.text).join(' ')).join('\n');
+      try{
+        const out = await callAI({
+          apiId: store.settings.memoryApiId,
+          system: '你是一个记忆归纳器。请阅读对话，输出一段简洁的第三人称记忆总结，包含关键事件、情感变化与未解伏笔，200字以内。同时给出3-5个主题关键词，格式：\n总结：...\n关键词：a,b,c',
+          messages: [{ role:'user', content: text }]
+        });
+        const mem = {
+          id: uid('mem_'), type:'short', charId: char.id,
+          title: `${char.name} 的近期记忆`,
+          content: out, source:'自动总结', ts: Date.now(), links:[]
+        };
+        store.memories.push(mem);
+        await dbPut('memories', JSON.parse(JSON.stringify(mem)));
+        toast('已生成一条短时记忆');
+      } catch(e){ /* 静默 */ }
+    }
+
+    /* ---------- 朋友圈 ---------- */
+    async function pickMomentsCover(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = async e => {
+        momentsCfg.value.cover = e.target.result;
+        await dbPut('kv', { key:'moments', value: JSON.parse(JSON.stringify(store.moments)) });
+      };
+      r.readAsDataURL(f);
+    }
+
+    function toast(t){ window.__toast && window.__toast(t); }
+
+    /* 长按编辑的定位修复 */
+    watch(editSheet, v => { if(v) window.__editTarget = pressMenu.value?.msg || null; });
+
+    onUnmounted(() => clearTimeout(replyTimer));
+
+    return {
+      store, mode, tab, page, lf, rf, searchCode, searchResult, searched,
+      curFriend, msgs, draft, drawer, timeAware, typing, ta, roomBody,
+      moments, pressMenu, editSheet, editText, profileSheet, detail,
+      remarkDraft, cssChatDraft, cssBubbleDraft,
+      acc, friends, tabTitle, settings, momentsCfg,
+      doRegister, doLogin, logout, pickAvatar, pickAccAvatar, editProfile, saveProfile, backHome,
+      isFriend, doSearch, addFriend, lastMsg, openRoom, leaveRoom,
+      avatarFor, roomStyle, autoGrow, send, insertNarr,
+      startPress, cancelPress, menuEdit, saveEdit, menuDelete, menuReroll,
+      saveRemark, pickRoomBg, clearRoomBg, saveBeautify,
+      pickMomentsCover, fmtTime
+    };
+  }
+};
+
+/* ============================================================================
+   9. 组件 —— 世界书
+   ============================================================================ */
+const WorldbookApp = {
+  template: '#tpl-worldbook',
+  emits: ['close'],
+  setup(props, { emit }){
+    const detail = ref(null);
+    const editing = ref(null);
+    const books = computed(() => store.worldbooks);
+
+    async function createBook(){
+      const name = prompt('世界书名称', '新世界书');
+      if(!name) return;
+      const b = { id: uid('wb_'), name, pos:'pre', entries: [], createdAt: Date.now() };
+      store.worldbooks.push(b);
+      await dbPut('worldbooks', JSON.parse(JSON.stringify(b)));
+    }
+    async function delBook(b){
+      if(!confirm('确认删除《' + b.name + '》？')) return;
+      const i = store.worldbooks.indexOf(b);
+      if(i >= 0) store.worldbooks.splice(i, 1);
+      await dbDel('worldbooks', b.id);
+    }
+    function openBook(b){ detail.value = b; }
+    async function setPos(p){ detail.value.pos = p; await dbPut('worldbooks', JSON.parse(JSON.stringify(detail.value))); }
+
+    function createEntry(){
+      editing.value = {
+        id: uid('e_'), title:'', type:'text', content:'', pattern:'',
+        mode:'always', keys:'', prob:50, inject:true, _new:true
+      };
+    }
+    function editEntry(e){
+      editing.value = JSON.parse(JSON.stringify(e));
+      editing.value._src = e;
+    }
+    async function saveEntry(){
+      const e = editing.value;
+      const payload = {
+        id: e.id, title:e.title, type:e.type, content:e.content, pattern:e.pattern,
+        mode:e.mode, keys:e.keys, prob:e.prob, inject:e.inject
+      };
+      const src = e._src;
+      if(src){
+        Object.assign(src, payload);
+      } else {
+        detail.value.entries.push(payload);
+      }
+      await dbPut('worldbooks', JSON.parse(JSON.stringify(detail.value)));
+      editing.value = null;
+    }
+    async function delEntry(e){
+      const i = detail.value.entries.findIndex(x => x.id === e.id);
+      if(i >= 0) detail.value.entries.splice(i, 1);
+      await dbPut('worldbooks', JSON.parse(JSON.stringify(detail.value)));
+      editing.value = null;
+    }
+
+    return { store, detail, editing, books, createBook, delBook, openBook, setPos,
+             createEntry, editEntry, saveEntry, delEntry, emit };
+  }
+};
+
+/* ============================================================================
+   10. 组件 —— 记忆
+   ============================================================================ */
+const MemoryApp = {
+  template: '#tpl-memory',
+  emits: ['close'],
+  setup(props, { emit }){
+    const tab = ref('short');
+    const tabName = computed(() => ({ short:'短时记忆', index:'索引记忆', perm:'永久记忆' }[tab.value]));
+    const filtered = computed(() => store.memories.filter(m => m.type === tab.value));
+
+    function charName(id){ return (store.chars.find(c => c.id === id) || {}).name || '未知角色'; }
+    async function del(m){
+      const i = store.memories.indexOf(m);
+      if(i >= 0) store.memories.splice(i, 1);
+      await dbDel('memories', m.id);
+    }
+    async function saveSettings(){ await dbPut('kv', { key:'settings', value: JSON.parse(JSON.stringify(store.settings)) }); }
+    async function summarizeAll(){
+      if(!store.chars.length) return window.__toast && window.__toast('还没有角色');
+      for(const c of store.chars){
+        const chatId = (store.currentAccountId || 'anon') + '::' + c.id;
+        const list = store.messages[chatId] || [];
+        if(list.length < 4) continue;
+        try{
+          const text = list.slice(-50).map(m =>
+            (m.role === 'user' ? '用户' : c.name) + '：' +
+            (m.blocks || []).filter(b => b.type === 'bubble').map(b => b.text).join(' ')
+          ).join('\n');
+          const out = await callAI({
+            apiId: store.settings.memoryApiId,
+            system: '你是一个记忆归纳器。请阅读对话，输出：\n总结：第三人称简洁记忆总结（200字内）\n关键词：3-5个主题词\n主题：一句话主题标题',
+            messages: [{ role:'user', content: text }]
+          });
+          const kwi = out.indexOf('关键词');
+          const mem = {
+            id: uid('mem_'), type:'short', charId: c.id,
+            title: `${c.name} 的记忆 · ${new Date().toLocaleDateString()}`,
+            content: out, raw: text.slice(-3000), source:'手动总结', ts: Date.now(), links:[]
+          };
+          store.memories.push(mem);
+          await dbPut('memories', JSON.parse(JSON.stringify(mem)));
+          const idx = {
+            id: uid('mem_'), type:'index', charId: c.id,
+            title: '主题 · ' + c.name + ' 的近期事件',
+            content: out, raw: text.slice(-3000), source:'聊天室', ts: Date.now(), links:[mem.id]
+          };
+          store.memories.push(idx);
+          await dbPut('memories', JSON.parse(JSON.stringify(idx)));
+        } catch(e){}
+      }
+      window.__toast && window.__toast('总结完成');
+    }
+    return { store, tab, tabName, filtered, charName, del, saveSettings, summarizeAll, emit };
+  }
+};
+
+/* ============================================================================
+   11. 组件 —— 档案
+   ============================================================================ */
+const ArchiveApp = {
+  template: '#tpl-archive',
+  emits: ['close'],
+  setup(props, { emit }){
+    const editing = ref(null);
+    const chars = computed(() => store.chars);
+
+    function genCode(){ return String(Math.floor(10000000 + Math.random() * 89999999)); }
+
+    function newChar(){
+      editing.value = {
+        id: null, avatar:null, name:'', gender:'男', persona:'', jung:'', mbti:'',
+        bg:'', taboo:'', refDialog:'', opening:'', worldbookId:null, apiId:null, code:null
+      };
+    }
+    function edit(c){ editing.value = JSON.parse(JSON.stringify(c)); }
+
+    async function pickCharAvatar(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = e => { editing.value.avatar = e.target.result; };
+      r.readAsDataURL(f);
+    }
+    async function save(){
+      const e = editing.value;
+      if(!e.avatar) return window.__toast && window.__toast('请上传角色头像');
+      if(!e.name) return window.__toast && window.__toast('请填写角色姓名');
+      if(!e.persona) return window.__toast && window.__toast('请填写角色人设');
+
+      if(e.id){
+        const src = store.chars.find(c => c.id === e.id);
+        Object.assign(src, e);
+        await dbPut('chars', JSON.parse(JSON.stringify(src)));
+      } else {
+        e.id = uid('c_');
+        e.code = genCode();
+        e.remark = '';
+        e.cssChat = '';
+        e.cssBubble = '';
+        e.roomBg = null;
+        e.createdAt = Date.now();
+        store.chars.push(e);
+        await dbPut('chars', JSON.parse(JSON.stringify(e)));
+      }
+      editing.value = null;
+      window.__toast && window.__toast('已保存');
+    }
+    async function del(c){
+      if(!confirm('确认删除角色「' + c.name + '」？')) return;
+      const i = store.chars.indexOf(c);
+      if(i >= 0) store.chars.splice(i, 1);
+      await dbDel('chars', c.id);
+    }
+    return { store, editing, chars, newChar, edit, pickCharAvatar, save, del, emit };
+  }
+};
+
+/* ============================================================================
+   12. 组件 —— 商店 / 通知 / 美化
+   ============================================================================ */
+const StoreApp = {
+  template: '#tpl-store',
+  emits: ['close'],
+  setup(props, { emit }){
+    const allApps = computed(() => Object.entries(APP_META).map(([id, m]) => ({ id, ...m, icon: ICONS[id] })));
+    const widgets = [
+      { type:'postcard', name:'明信片' },
+      { type:'polaroid', name:'拍立得相框' },
+      { type:'music',    name:'音乐箱' },
+      { type:'dialog',   name:'小对话' }
+    ];
+    function hasApp(id){ return store.desktopItems.some(i => i.type === 'app' && i.appId === id) ||
+                                store.dockItems.some(i => i.appId === id); }
+    async function toggleApp(id){
+      if(hasApp(id)){
+        store.desktopItems = store.desktopItems.filter(i => !(i.type === 'app' && i.appId === id));
+        store.dockItems = store.dockItems.filter(i => i.appId !== id);
+      } else {
+        // 找空位
+        let placed = false;
+        for(let row = 0; row < 12 && !placed; row++){
+          for(let col = 0; col < 4 && !placed; col++){
+            const occupied = store.desktopItems.some(i =>
+              !(col + 1 <= i.col || i.col + i.w <= col || row + 1 <= i.row || i.row + i.h <= row));
+            if(!occupied){
+              store.desktopItems.push({ id: uid('d_'), type:'app', appId:id, col, row, w:1, h:1 });
+              placed = true;
+            }
+          }
+        }
+        if(!placed) store.desktopItems.push({ id: uid('d_'), type:'app', appId:id, col:0, row:0, w:1, h:1 });
+      }
+      await saveDesktop();
+    }
+    async function addWidget(type){
+      let placed = false;
+      for(let row = 0; row < 14 && !placed; row++){
+        for(let col = 0; col < 4 && !placed; col++){
+          const occupied = store.desktopItems.some(i =>
+            !(col + 2 <= i.col || i.col + i.w <= col || row + 2 <= i.row || i.row + i.h <= row));
+          if(!occupied){
+            store.desktopItems.push({ id: uid('d_'), type, col, row, w:2, h:2, cfg:{} });
+            placed = true;
+          }
+        }
+      }
+      if(!placed) store.desktopItems.push({ id: uid('d_'), type, col:0, row:0, w:2, h:2, cfg:{} });
+      await saveDesktop();
+      window.__toast && window.__toast('已添加到桌面');
+    }
+    return { allApps, widgets, hasApp, toggleApp, addWidget, emit };
+  }
+};
+
+const NoticeApp = {
+  template: '#tpl-notice',
+  emits: ['close'],
+  setup(props, { emit }){
+    const notices = [
+      { id:1, title:'小手机 v1.0 正式发布', date:'2025-01-01',
+        body:'欢迎使用小手机！\n\n本次更新包含：\n· 完整的桌面系统与可拖拽应用网格\n· 聊天应用（多账号、好友、朋友圈）\n· 世界书 / 记忆 / 档案 三大核心应用\n· 全局 API 与提示词管理\n· 桌面美化与数据管理\n\n所有数据保存在浏览器本地 IndexedDB 中，换浏览器请先导出备份。' },
+      { id:2, title:'关于数据安全', date:'2025-01-01',
+        body:'小手机所有数据（头像、聊天记录、角色档案、API 密钥）均保存在当前浏览器的 IndexedDB 中，不会上传到任何服务器。\n\n清除浏览器数据会导致数据丢失，请谨慎操作。' }
+    ];
+    return { notices, emit };
+  }
+};
+
+const BeautyApp = {
+  template: '#tpl-beauty',
+  emits: ['close'],
+  setup(props, { emit }){
+    const css = ref(store.settings.globalCss || '');
+    const js = ref(store.settings.globalJs || '');
+
+    async function pickWall(){
+      const f = await pickFile();
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = async e => {
+        store.settings.wallpaper = e.target.result;
+        await saveSettings();
+        window.__toast && window.__toast('背景已更新');
+      };
+      r.readAsDataURL(f);
+    }
+    async function clearWall(){
+      store.settings.wallpaper = null;
+      await saveSettings();
+    }
+    async function onFont(e){
+      const f = e.target.files[0];
+      if(!f) return;
+      const r = new FileReader();
+      r.onload = async ev => {
+        const url = ev.target.result;
+        let st = document.getElementById('phone-font');
+        if(!st){ st = document.createElement('style'); st.id = 'phone-font'; document.head.appendChild(st); }
+        st.textContent = `@font-face{font-family:"PhoneFont";src:url(${url});} .phone{font-family:"PhoneFont",-apple-system,sans-serif;}`;
+        store.settings.fontName = f.name;
+        await saveSettings();
+        window.__toast && window.__toast('字体已应用');
+      };
+      r.readAsDataURL(f);
+    }
+    async function clearFont(){
+      const st = document.getElementById('phone-font');
+      if(st) st.textContent = '';
+      store.settings.fontName = null;
+      await saveSettings();
+    }
+    async function applyCss(){
+      store.settings.globalCss = css.value;
+      let st = document.getElementById('desk-css');
+      if(!st){ st = document.createElement('style'); st.id = 'desk-css'; document.head.appendChild(st); }
+      st.textContent = css.value;
+      await saveSettings();
+      window.__toast && window.__toast('CSS 已应用');
+    }
+    async function applyJs(){
+      store.settings.globalJs = js.value;
+      await saveSettings();
+      try{
+        new Function('phone', js.value)(window.__phone);
+        window.__toast && window.__toast('JS 已执行');
+      } catch(e){ window.__toast && window.__toast('执行出错：' + e.message); }
+    }
+    return { store, css, js, pickWall, clearWall, onFont, clearFont, applyCss, applyJs, emit };
+  }
+};
+
+/* ============================================================================
+   13. 组件 —— 设置
+   ============================================================================ */
+const SettingsApp = {
+  template: '#tpl-settings',
+  emits: ['close'],
+  setup(props, { emit }){
+    const sub = ref(null);
+    const apiEdit = ref(null);
+    const models = ref([]);
+    const sizes = ref([]);
+    const totalSize = ref(0);
+
+    const subTitle = computed(() => ({ api:'API 设置', prompt:'提示词设置', data:'数据管理' }[sub.value] || '设置'));
+    const usedPct = computed(() => clamp(totalSize.value / (5 * 1024 * 1024) * 100, 1, 100));
+
+    async function toggle(k){ store.settings[k] = !store.settings[k]; await saveSettings(); }
+    async function togglePrompt(id){
+      store.settings.promptEnabled[id] = !store.settings.promptEnabled[id];
+      await saveSettings();
+    }
+    async function moveUp(i){
+      if(i <= 0) return;
+      const arr = store.settings.promptOrder;
+      [arr[i-1], arr[i]] = [arr[i], arr[i-1]];
+      await saveSettings();
+    }
+    async function moveDown(i){
+      const arr = store.settings.promptOrder;
+      if(i >= arr.length - 1) return;
+      [arr[i+1], arr[i]] = [arr[i], arr[i+1]];
+      await saveSettings();
+    }
+    function partPreview(id){
+      const c = store.chars[0];
+      switch(id){
+        case 'system': return '角色扮演总规则与输出格式约束';
+        case 'charPersona': return c ? `角色「${c.name}」的人设 / 背景` : '角色人设（未创建角色）';
+        case 'userPersona': return '当前账号的昵称与人设';
+        case 'memory': return `${store.memories.length} 条记忆条目`;
+        case 'context': return '最近 30 条对话消息';
+        case 'wbPre': case 'wbMid': case 'wbPost':
+          return `${store.worldbooks.length} 本世界书绑定`;
+        default: return '';
+      }
+    }
+
+    /* --- API --- */
+    function newApi(){
+      apiEdit.value = {
+        id:null, name:'新配置', protocol:'openai', baseUrl:'https://api.openai.com',
+        apiKey:'', model:'', temperature:0.85, maxTokens:2048, vision:false, imageGen:false
+      };
+    }
+    function editApi(a){ apiEdit.value = JSON.parse(JSON.stringify(a)); }
+    async function saveApi(){
+      const e = apiEdit.value;
+      if(!e.id){
+        e.id = uid('api_');
+        store.settings.apiConfigs.push(e);
+        if(!store.settings.activeApiId) store.settings.activeApiId = e.id;
+      } else {
+        const src = store.settings.apiConfigs.find(x => x.id === e.id);
+        Object.assign(src, e);
+      }
+      await saveSettings();
+      apiEdit.value = null;
+      window.__toast && window.__toast('已保存');
+    }
+    async function delApi(a){
+      if(!confirm('确认删除该 API 配置？')) return;
+      const i = store.settings.apiConfigs.indexOf(a);
+      if(i >= 0) store.settings.apiConfigs.splice(i, 1);
+      if(store.settings.activeApiId === a.id) store.settings.activeApiId = store.settings.apiConfigs[0]?.id || null;
+      await saveSettings();
+    }
+    async function useApi(a){ store.settings.activeApiId = a.id; await saveSettings(); window.__toast && window.__toast('已启用'); }
+    async function pullModels(){
+      try{
+        models.value = await pullModels(apiEdit.value);
+        if(!models.value.length) window.__toast && window.__toast('未获取到模型');
+      } catch(e){ window.__toast && window.__toast(e.message); }
+    }
+
+    /* --- 数据 --- */
+    async function refreshSizes(){
+      const arr = [];
+      let total = 0;
+      for(const name of Object.keys(SCHEMA)){
+        const all = await dbAll(name);
+        let size = 0;
+        for(const r of all){
+          if(name === 'blobs') size += (r.size || 0);
+          else size += textSize(r);
+        }
+        arr.push({ name, label: STORE_LABEL[name], count: all.length, size });
+        total += size;
+      }
+      sizes.value = arr;
+      totalSize.value = total;
+    }
+    async function clearStore(s){
+      if(!confirm(`确认清空「${s.label}」？该操作不可撤销。`)) return;
+      await dbClear(s.name);
+      await refreshSizes();
+      window.__toast && window.__toast('已清理');
+      setTimeout(() => location.reload(), 600);
+    }
+    async function clearAll(){
+      if(!confirm('确认清空全部数据？所有账号、角色、聊天记录都会消失。')) return;
+      for(const n of Object.keys(SCHEMA)) await dbClear(n);
+      location.reload();
+    }
+
+    const varsList = computed(() => {
+      const l = [];
+      l.push({ k:'store.currentAccountId', v: store.currentAccountId || 'null' });
+      l.push({ k:'store.accounts.length', v: store.accounts.length });
+      l.push({ k:'store.chars.length', v: store.chars.length });
+      l.push({ k:'store.worldbooks.length', v: store.worldbooks.length });
+      l.push({ k:'store.memories.length', v: store.memories.length });
+      l.push({ k:'store.settings.activeApiId', v: store.settings.activeApiId || 'null' });
+      l.push({ k:'store.settings.memoryThreshold', v: store.settings.memoryThreshold });
+      l.push({ k:'store.settings.wallpaper', v: store.settings.wallpaper ? '已设置' : 'null' });
+      l.push({ k:'store.settings.showStatusBar', v: String(store.settings.showStatusBar) });
+      l.push({ k:'store.desktopItems.length', v: store.desktopItems.length });
+      l.push({ k:'store.dockItems.length', v: store.dockItems.length });
+      const keys = Object.keys(store.messages);
+      l.push({ k:'store.messages.keys', v: keys.length + ' 个会话' });
+      let total = 0;
+      keys.forEach(k => total += (store.messages[k] || []).length);
+      l.push({ k:'store.messages.total', v: total + ' 条消息' });
+      return l;
+    });
+
+    watch(sub, v => { if(v === 'data') refreshSizes(); });
+
+    return { store, sub, subTitle, apiEdit, models, sizes, totalSize, usedPct,
+             toggle, togglePrompt, moveUp, moveDown, partPreview,
+             newApi, editApi, saveApi, delApi, useApi, pullModels,
+             refreshSizes, clearStore, clearAll, varsList, fmtSize, emit };
+  }
+};
+
+/* ============================================================================
+   14. 根应用
+   ============================================================================ */
+const RootApp = {
+  setup(){
+    const activeApp = ref(null);
+    const clock = ref('');
+    const toastMsg = ref('');
+
+    function updateClock(){
+      const d = new Date();
+      clock.value = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    }
+    let clockTimer = null;
+
+    const wallpaperStyle = computed(() => {
+      const w = store.settings.wallpaper;
+      return w ? { backgroundImage: `url(${w})` } : {};
+    });
+
+    function openApp(id){ activeApp.value = id; }
+    function closeApp(){ activeApp.value = null; }
+
+    let toastTimer = null;
+    function toast(t){
+      toastMsg.value = t;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastMsg.value = '', 1900);
+    }
+    window.__toast = toast;
+
+    onMounted(async () => {
+      updateClock();
+      clockTimer = setInterval(updateClock, 15000);
+
+      try{
+        await openDB();
+      } catch(e){
+        alert('无法初始化本地数据库（IndexedDB）。请更换为 Chrome / Edge / Safari 等现代浏览器后重试。');
+        return;
+      }
+
+      // 载入设置
+      const st = await dbGet('kv', 'settings');
+      if(st && st.value){
+        Object.assign(store.settings, st.value);
+        if(!store.settings.promptOrder) store.settings.promptOrder = [
+          { id:'system', label:'系统提示词' },
+          { id:'wbPre', label:'世界书（前置）' },
+          { id:'charPersona', label:'好友人设' },
+          { id:'wbMid', label:'世界书（中置）' },
+          { id:'userPersona', label:'用户人设' },
+          { id:'memory', label:'记忆' },
+          { id:'wbPost', label:'世界书（后置）' },
+          { id:'context', label:'最近上下文' }
+        ];
+      }
+      const desk = await dbGet('kv', 'desktop');
+      if(desk && desk.value){
+        if(desk.value.items) store.desktopItems = desk.value.items;
+        if(desk.value.dock) store.dockItems = desk.value.dock;
+      }
+      const cur = await dbGet('kv', 'currentAccount');
+      if(cur) store.currentAccountId = cur.value;
+      const mo = await dbGet('kv', 'moments');
+      if(mo && mo.value) store.moments = mo.value;
+
+      store.accounts = await dbAll('accounts');
+      store.chars = await dbAll('chars');
+      store.memories = await dbAll('memories');
+      store.worldbooks = await dbAll('worldbooks');
+
+      const allMsgs = await dbAll('messages');
+      store.messages = {};
+      for(const m of allMsgs){
+        const cid = m.chatId || 'unknown';
+        if(!store.messages[cid]) store.messages[cid] = [];
+        store.messages[cid].push(m);
+      }
+      for(const k of Object.keys(store.messages)){
+        store.messages[k].sort((a,b) => a.ts - b.ts);
+      }
+
+      // 应用全局 CSS
+      if(store.settings.globalCss){
+        const st2 = document.createElement('style');
+        st2.id = 'desk-css';
+        st2.textContent = store.settings.globalCss;
+        document.head.appendChild(st2);
+      }
+
+      store.ready = true;
+    });
+
+    onUnmounted(() => clearInterval(clockTimer));
+
+    return { store, activeApp, clock, wallpaperStyle, openApp, closeApp, toast: toastMsg };
+  }
+};
+
+/* ============================================================================
+   15. 挂载
+   ============================================================================ */
+const app = createApp(RootApp);
+app.component('DesktopView', DesktopView);
+app.component('ChatApp', ChatApp);
+app.component('WorldbookApp', WorldbookApp);
+app.component('MemoryApp', MemoryApp);
+app.component('ArchiveApp', ArchiveApp);
+app.component('StoreApp', StoreApp);
+app.component('NoticeApp', NoticeApp);
+app.component('BeautyApp', BeautyApp);
+app.component('SettingsApp', SettingsApp);
+app.mount('#app');
+</script>
+<!-- ===== 清新千禧绿 · 图标补丁 ===== -->
+<style>
+[style*="8fa4d4"],[style*="143, 164, 212"]{background:#7BC9A6 !important}
+[style*="a5b4d4"],[style*="165, 180, 212"]{background:#7BC9A6 !important}
+[style*="b9bccb"],[style*="185, 188, 203"]{background:#A8DDC0 !important}
+</style>
+<!-- ===== 清新千禧绿 · 图标补丁 ===== -->
+<style>
+[style*="8fa4d4"],[style*="143, 164, 212"]{background:#7BC9A6 !important}
+[style*="a5b4d4"],[style*="165, 180, 212"]{background:#7BC9A6 !important}
+[style*="b9bccb"],[style*="185, 188, 203"]{background:#A8DDC0 !important}
+</style>
+<script>
+(function(){
+  var MAP = {
+    'rgb(123, 140, 255)':'#5DD9A0',
+    'rgb(154, 171, 205)':'#7BC9A6',
+    'rgb(189, 160, 204)':'#A8DDC0',
+    'rgb(211, 171, 152)':'#6FBFA0',
+    'rgb(147, 201, 178)':'#4EC98E',
+    'rgb(212, 191, 148)':'#98D9B8',
+    'rgb(213, 162, 176)':'#B5E6CC',
+    'rgb(168, 168, 179)':'#89B8A0'
+  };
+  function fix(){
+    document.querySelectorAll('.app-icon').forEach(function(el){
+      if(el.dataset.recolored) return;
+      var c = getComputedStyle(el).backgroundColor;
+      if(MAP[c]){ el.style.background = MAP[c]; el.dataset.recolored = '1'; }
+    });
+  }
+  setTimeout(fix, 60);
+  new MutationObserver(fix).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+<script>
+(function(){
+  var MAP = {
+    'rgb(123, 140, 255)':'#5DD9A0',
+    'rgb(154, 171, 205)':'#7BC9A6',
+    'rgb(189, 160, 204)':'#A8DDC0',
+    'rgb(211, 171, 152)':'#6FBFA0',
+    'rgb(147, 201, 178)':'#4EC98E',
+    'rgb(212, 191, 148)':'#98D9B8',
+    'rgb(213, 162, 176)':'#B5E6CC',
+    'rgb(168, 168, 179)':'#89B8A0'
+  };
+  function fix(){
+    document.querySelectorAll('.app-icon').forEach(function(el){
+      if(el.dataset.recolored) return;
+      var c = getComputedStyle(el).backgroundColor;
+      if(MAP[c]){ el.style.background = MAP[c]; el.dataset.recolored = '1'; }
+    });
+  }
+  setTimeout(fix, 60);
+  new MutationObserver(fix).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+<!-- ===== 数据导出 / 导入 补丁 ===== -->
+<script>
+(function(){
+  async function openDB(){
+    return new Promise(function(res, rej){
+      var req = indexedDB.open('tinyphone_db');
+      req.onsuccess = function(){ res(req.result); };
+      req.onerror = function(){ rej(req.error); };
+    });
+  }
+
+  async function exportAll(){
+    try {
+      var names = ['kv','blobs','accounts','chars','messages','memories','worldbooks'];
+      var db = await openDB();
+      var data = { version:1, exportedAt:new Date().toISOString(), stores:{} };
+
+      for (var name of names){
+        var list = await new Promise(function(res, rej){
+          var tx = db.transaction(name, 'readonly');
+          var req = tx.objectStore(name).getAll();
+          req.onsuccess = function(){ res(req.result || []); };
+          req.onerror = function(){ rej(req.error); };
+        });
+        data.stores[name] = [];
+        for (var rec of list){
+          if (name === 'blobs' && rec.blob){
+            var b64 = await new Promise(function(res){
+              var r = new FileReader();
+              r.onload = function(){ res(r.result); };
+              r.readAsDataURL(rec.blob);
+            });
+            data.stores[name].push({
+              id: rec.id, size: rec.size, type: rec.type,
+              name: rec.name, createdAt: rec.createdAt, dataUrl: b64
+            });
+          } else {
+            data.stores[name].push(rec);
+          }
+        }
+      }
+
+      var json = JSON.stringify(data);
+      var blob = new Blob([json], { type:'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'tinyphone-' + new Date().toISOString().slice(0,10) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
+      alert('导出成功！文件已保存。\n\n提示：可在文件 App / 下载目录里找到这个 .json 文件。');
+    } catch(e){
+      alert('导出失败：' + e.message);
+    }
+  }
+
+  async function importAll(file){
+    if (!confirm('导入将清空当前所有数据，确定继续吗？')) return;
+    try {
+      var text = await file.text();
+      var data = JSON.parse(text);
+      if (!data.stores) throw new Error('文件格式不正确');
+
+      var db = await openDB();
+      var names = ['kv','blobs','accounts','chars','messages','memories','worldbooks'];
+
+      for (var name of names){
+        await new Promise(function(res, rej){
+          var tx = db.transaction(name, 'readwrite');
+          var req = tx.objectStore(name).clear();
+          req.onsuccess = function(){ res(); };
+          req.onerror = function(){ rej(req.error); };
+        });
+      }
+
+      for (var name of Object.keys(data.stores)){
+        var list = data.stores[name];
+        for (var rec of list){
+          if (name === 'blobs' && rec.dataUrl){
+            var blob = await new Promise(function(res){
+              var arr = rec.dataUrl.split(',');
+              var mime = (arr[0].match(/:(.*?);/) || [,'image/png'])[1];
+              var bstr = atob(arr[1]);
+              var n = bstr.length;
+              var u8 = new Uint8Array(n);
+              while (n--) u8[n] = bstr.charCodeAt(n);
+              res(new Blob([u8], { type: mime }));
+            });
+            await new Promise(function(res, rej){
+              var tx = db.transaction(name, 'readwrite');
+              var req = tx.objectStore(name).put({
+                id: rec.id, blob: blob, size: rec.size, type: rec.type,
+                name: rec.name, createdAt: rec.createdAt
+              });
+              req.onsuccess = function(){ res(); };
+              req.onerror = function(){ rej(req.error); };
+            });
+          } else {
+            await new Promise(function(res, rej){
+              var tx = db.transaction(name, 'readwrite');
+              var req = tx.objectStore(name).put(rec);
+              req.onsuccess = function(){ res(); };
+              req.onerror = function(){ rej(req.error); };
+            });
+          }
+        }
+      }
+
+      alert('导入成功！页面将自动刷新。');
+      setTimeout(function(){ location.reload(); }, 800);
+    } catch(e){
+      alert('导入失败：' + e.message);
+    }
+  }
+
+  function createUI(){
+    if (document.getElementById('tp-backup-panel')) return;
+    var phone = document.querySelector('.phone') || document.body;
+
+    var panel = document.createElement('div');
+    panel.id = 'tp-backup-panel';
+    panel.style.cssText = 'position:absolute;right:14px;bottom:110px;z-index:9999;display:flex;flex-direction:column;gap:10px;';
+
+    var btnCss = 'width:44px;height:44px;border-radius:50%;background:rgba(78,201,142,.92);color:#fff;display:grid;place-items:center;box-shadow:0 4px 14px rgba(50,120,85,.32);border:1.5px solid rgba(255,255,255,.7);cursor:pointer;backdrop-filter:blur(10px);';
+
+    var expBtn = document.createElement('button');
+    expBtn.title = '导出数据';
+    expBtn.style.cssText = btnCss;
+    expBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>';
+    expBtn.onclick = exportAll;
+
+    var impBtn = document.createElement('button');
+    impBtn.title = '导入数据';
+    impBtn.style.cssText = btnCss;
+    impBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>';
+    impBtn.onclick = function(){
+      var inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = '.json,application/json';
+      inp.onchange = function(){ if (inp.files[0]) importAll(inp.files[0]); };
+      inp.click();
+    };
+
+    panel.appendChild(expBtn);
+    panel.appendChild(impBtn);
+    phone.appendChild(panel);
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(createUI, 1200); });
+  } else {
+    setTimeout(createUI, 1200);
+  }
+})();
+</script>
+</body>
+</html>
